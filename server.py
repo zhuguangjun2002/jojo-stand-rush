@@ -42,6 +42,9 @@ _rooms_lock = threading.Lock()
 ROOT = Path(__file__).resolve().parent
 # Bind addresses that mean "every interface" and cannot be typed into a browser.
 WILDCARD_HOSTS = {"0.0.0.0", "::", ""}
+# Clash / TUN proxies commonly claim 198.18.0.0/15; it is not a LAN address
+# another phone can dial, so keep it out of the share hint.
+BENCHMARK_NET = ipaddress.ip_network("198.18.0.0/15")
 
 _last_activity = time.monotonic()
 _viewers: dict[str, float] = {}
@@ -83,13 +86,27 @@ def viewer_query(path: str) -> tuple[str, str | None]:
     return parsed.path, viewer
 
 
+def is_lan_ipv4(value: str) -> bool:
+    try:
+        addr = ipaddress.IPv4Address(value)
+    except ValueError:
+        return False
+    return not (
+        addr.is_loopback
+        or addr.is_link_local
+        or addr.is_multicast
+        or addr.is_unspecified
+        or addr in BENCHMARK_NET
+    )
+
+
 def local_ipv4s() -> list[str]:
     addresses: set[str] = set()
     try:
         for item in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
             ip = item[4][0]
-            if ip and not ip.startswith("127.") and ip != "0.0.0.0":
-                addresses.add(ip)
+            if is_lan_ipv4(ip):
+                addresses.add(str(ipaddress.IPv4Address(ip)))
     except OSError:
         pass
     # WSL/Docker hostnames often resolve to nothing useful; hostname -I is
@@ -97,12 +114,8 @@ def local_ipv4s() -> list[str]:
     try:
         out = subprocess.check_output(["hostname", "-I"], text=True, timeout=0.5)
         for token in out.split():
-            try:
-                ip = str(ipaddress.IPv4Address(token))
-            except ValueError:
-                continue
-            if not ip.startswith("127.") and ip != "0.0.0.0":
-                addresses.add(ip)
+            if is_lan_ipv4(token):
+                addresses.add(str(ipaddress.IPv4Address(token)))
     except (OSError, subprocess.SubprocessError, ValueError):
         pass
     return sorted(addresses)
