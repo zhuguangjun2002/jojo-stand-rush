@@ -316,7 +316,7 @@
       // Inputs only need to cover one-way latency; RTT / 2 is the useful
       // number here. Three extra frames cover jitter and scheduling.
       const oneWay = rtt / 2;
-      return Math.max(6, Math.min(24, Math.ceil(oneWay / (1000 / 60)) + 3));
+      return Math.max(4, Math.min(24, Math.ceil(oneWay / (1000 / 60)) + 3));
     },
 
     latencyInfo() {
