@@ -2,7 +2,7 @@
 
 最后更新：2026-11-16  
 源码：<https://github.com/zhuguangjun2002/jojo-stand-rush>  
-在线试玩：<https://jojo.bigcow.net/>（Cloudflare Pages 静态部署）
+在线试玩：<https://jojo.bigcow.net/>（Cloudflare Pages + Workers 在线联机）
 
 ## 1. 项目概览
 
@@ -35,9 +35,18 @@ PORT=9000 ./run.sh
 HOST=0.0.0.0 PORT=8080 ./run.sh
 ```
 
-也可以直接用浏览器打开 `index.html`，但局域网联机和部分浏览器音频策略建议使用 `server.py` / `run.sh`。
+也可以直接用浏览器打开 `index.html`，但联机对战和部分浏览器音频策略建议使用 `server.py` / `run.sh`。
 
-## 3. 东方定助最终机制
+## 3. 联机架构
+
+- **在线版**：`https://jojo.bigcow.net/` 由 Cloudflare Pages 托管；浏览器连接 `wss://ws.jojo.bigcow.net/__ws`，由 `worker/` 中的 Cloudflare Worker + Durable Object 按房间码转发消息。
+- **本地局域网**：`./run.sh` 启动 `server.py`，浏览器优先使用同源 `/__ws`；只有静态页面才回退到在线中继。
+- **协议**：与 `server.py` 一致，包含 `choice` / `peer-choice` / `start` / `rematch` / `input` / `frame` / `leave`。Durable Object 只做输入配对，不运行战斗逻辑。
+- **房间**：一个 4 位房间码对应一个 Durable Object；房主先创建，guest 再加入。双方每帧交换输入后锁步推进。
+- **配置**：`js/config.js` 的 `onlineWs` 是静态部署使用的中继地址；设为空字符串可关闭在线联机。
+- **部署**：GitHub Actions 在 `main` 更新后同时发布 Pages 和 Worker。
+
+## 4. 东方定助最终机制
 
 - `H`（20 SP）：**夺走之泡**。缓慢泡泡命中未防御目标后，随机偷取力量、速度、防御或 SP，持续 8 秒；进化后持续 10 秒。
 - `L`（0 SP）：**泡沫弹**。普通远程泡泡，28 伤害、可防御、不偷取属性。拥有 3 发弹药，3 发后进入 4 秒冷却，冷却结束自动补满。
@@ -62,7 +71,7 @@ HOST=0.0.0.0 PORT=8080 ./run.sh
 - 终结图：`assets/finishers/josuke.jpg`
 - 语音：`voices/josuke_*.mp3`
 
-## 4. 奇迹与你当前平衡
+## 5. 奇迹与你当前平衡
 
 - `J` 拐杖攻击距离缩短（`reachBonus: -14`），不再拥有常规 J 的攻击距离。
 - `K` 石头：
@@ -85,7 +94,7 @@ HOST=0.0.0.0 PORT=8080 ./run.sh
 
 相关文件：`js/data.js`（`tooru`）、`js/game/fighter.js`、`js/game/match.js`。
 
-## 5. 操作
+## 6. 操作
 
 > 普通攻击命中不会让对手横向后退，J → K 等轻 / 重衔接可以稳定连上；必杀、投技和飞行物仍保留击退。
 
@@ -107,7 +116,7 @@ HOST=0.0.0.0 PORT=8080 ./run.sh
 
 手机端使用虚拟轮盘与右侧 `轻 重 技 追 闪 极`。标题页和按键设置页都可以进入触屏布局编辑。
 
-## 6. 代码结构
+## 7. 代码结构
 
 ```text
 index.html          页面与 UI（HUD、触屏轮盘、按键设置、特殊能量条）
@@ -121,16 +130,18 @@ js/game/match.js    回合、镜头、判定、飞行物、泡泡、灾厄、对
 js/game/supers.js   超必杀、终结演出等绘制覆盖层
 js/game/render.js   按界面分发渲染
 js/game/main.js     键盘 / 触屏输入、布局、主循环
-js/net.js           局域网房间客户端与锁步输入
+js/net.js           联机房间客户端与锁步输入
+js/config.js        静态部署使用的在线中继地址
+worker/             Cloudflare Worker + Durable Object 在线房间中继
 assets/finishers/   终结演出图
 voices/             VOICEVOX 语音与署名
 server.py           本地静态服务器、局域网房间与 WebSocket 中继
 HANDOVER.md         本文件
 TESTING.md          自动化测试说明
-.github/workflows/deploy-cloudflare.yml  推送到 main 后自动发布到 Pages
+.github/workflows/deploy-cloudflare.yml  推送到 main 后自动发布 Pages 与 Worker
 ```
 
-## 7. 测试与验证
+## 8. 测试与验证
 
 提交前使用过：
 
@@ -166,7 +177,7 @@ cd ~/webgame-test && npx playwright test
 - 奇迹与你石头 / 枯木虫贴地，跳跃可以躲开
 - 软又湿·超越 U 命中后穿透并爆开，造成 320 伤害；夺取全属性 6 秒；奇迹与你石头 / 枯木虫封印 6 秒
 
-## 8. 已知限制 / 坑
+## 9. 已知限制 / 坑
 
 - 参考视频是实质单声道，角色语音和 BGM 无法真正完全分离；透龙语音是按角色自我介绍段做音高匹配的近似。
 - VOICEVOX 语音通过 tts.quest 预先合成；若替换语音，保持文件名和相对路径不变。
@@ -177,22 +188,26 @@ cd ~/webgame-test && npx playwright test
 - HUD 特殊条只在东方定助未进化时显示。
 - 奇迹与你所有僵直缩放在 `js/game/match.js` 的 `TOORU_STUN_SCALE = 0.8`；直接改单招 hitstun 时注意别重复缩放。
 - 终结图 `josuke.jpg` 是用户提供的参考图，仅用于非商业同人演示；公开部署前请确认素材授权。
-- Cloudflare Pages 是纯静态托管，`server.py` 的局域网房间与 WebSocket 中继不会运行。`js/game/core.js` 的 `Server.probe()` 会探测 `/__net/info`，静态部署时隐藏联机按钮并停止心跳请求；本地 `./run.sh` 不受影响。
-- 线上版地址 <https://jojo.bigcow.net/>，构建时不复制 `server.py`、`.bat`、文档和 Git 元数据。
+- 在线联机依赖 Cloudflare Worker + Durable Object（`jojo-stand-rush-ws` / `ws.jojo.bigcow.net`）；`server.py` 只负责本地局域网，不会在 Pages 上运行。
+- `js/game/core.js` 的 `Server.probe()` 会探测 `/__net/info`：本地服务器优先走同源 `/__ws`，静态页面回退到 `js/config.js` 的在线中继，并停止无用的 `/__heartbeat` 请求。
+- 当前在线联机是锁步中继，没有输入延迟缓冲、掉线重连或延迟显示；公网高延迟时双方都会等待，网络抖动会直接卡住。房间码为 4 位，公开推广前建议改成 6 位并加限流。
+- 线上版地址 <https://jojo.bigcow.net/>，构建时不复制 `server.py`、`worker/`、`.bat`、文档和 Git 元数据；Worker 由独立步骤发布。
 
-## 9. 交接检查清单
+## 10. 交接检查清单
 
 - [ ] `git status` 干净，最新提交为本次交接提交
 - [ ] `node --check` 通过
 - [ ] `git diff --check` 通过
 - [ ] Playwright smoke 4/4 通过
+- [ ] 在线联机：两个独立浏览器创建 / 加入房间，双方选角后能进入战斗并交换输入帧
+- [ ] 本地 `./run.sh` 仍走同源 `/__ws`，没有被在线中继覆盖
 - [ ] 东方定助：H 偷属性、L 3 发泡沫弹、受击 +2 特殊、普通 SP 获取的 50% 转化特殊、U 150 能量进化
 - [ ] 东方定助进化后：L 40 SP 超越泡泡、U 100 SP 超必杀、无视奇迹与你灾厄
 - [ ] 奇迹与你：3 发石头 / 5 秒冷却 / 短 K 拐击 / 射程 500 / 命中 +15 SP
 - [ ] 奇迹与你：灾厄的恶 40% 概率、40 伤害、不打断动作
 - [ ] 手机 HUD 特殊条没有溢出，触屏按键仍可正常编辑
 
-## 10. 下一步建议
+## 11. 下一步建议
 
 1. 用实际对战数据继续调东方定助：特殊能量（受击 +2 + 普通 SP 50%）是否过快、150 能量进化是否太慢。
 2. 观察奇迹与你 3 发石头 + 5 秒冷却后的压制力，必要时调 4/5 秒冷却或第 3 发伤害。

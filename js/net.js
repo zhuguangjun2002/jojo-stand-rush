@@ -1,8 +1,9 @@
 /* =========================================================
-   JOJO 奇妙格斗 · STAND RUSH — LAN room client
+   JOJO 奇妙格斗 · STAND RUSH — room client
 
-   The local Python server relays tiny JSON messages between two
-   browsers. Both clients run the same deterministic match in lockstep:
+   A tiny JSON relay connects two browsers. Local play uses server.py;
+   the public static build uses the Cloudflare Durable Object relay from
+   js/config.js. Both clients run the same deterministic match in lockstep:
    each input frame is only simulated after both players' inputs arrive.
    ========================================================= */
 (function () {
@@ -48,11 +49,13 @@
 
     connect(room, role) {
       if (location.protocol !== 'http:' && location.protocol !== 'https:') {
-        this.emit('error', '局域网联机需要通过本地服务器地址打开游戏');
+        this.emit('error', '联机需要通过 http 或 https 地址打开游戏');
         return false;
       }
-      if (!JG.Server || JG.Server.online !== true) {
-        this.emit('error', '当前页面没有联机房间服务；请在项目目录运行 ./run.sh 后再试');
+      const remoteWs = (JG.Config && JG.Config.onlineWs) || '';
+      const localServer = JG.Server && JG.Server.online === true;
+      if (!localServer && !remoteWs) {
+        this.emit('error', '当前页面没有可用的联机服务；请刷新页面或在本机运行 ./run.sh');
         return false;
       }
       const code = String(room || '').trim().toUpperCase();
@@ -75,7 +78,21 @@
       this.manualClose = false;
 
       const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
-      const url = `${scheme}://${location.host}/__ws?room=${encodeURIComponent(code)}&role=${role}`;
+      const endpoint = (!localServer && remoteWs)
+        ? remoteWs
+        : `${scheme}://${location.host}/__ws`;
+      let url;
+      try {
+        const target = new URL(endpoint, location.href);
+        if (target.protocol === 'http:') target.protocol = 'ws:';
+        if (target.protocol === 'https:') target.protocol = 'wss:';
+        target.searchParams.set('room', code);
+        target.searchParams.set('role', role);
+        url = target.toString();
+      } catch (err) {
+        this.emit('error', '联机服务地址配置无效');
+        return false;
+      }
       let ws;
       try {
         ws = new WebSocket(url);

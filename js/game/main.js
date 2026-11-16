@@ -60,7 +60,7 @@
     keyBindTarget = null;
     setScreen('keys');
     renderKeySettings();
-    setKeysStatus('点击一个按键，然后按下新的键。局域网联机时两台电脑都使用 P1 键位。');
+    setKeysStatus('点击一个按键，然后按下新的键。联机对战时双方都使用 P1 键位。');
     Audio.setMusicMode('menu');
     Audio.ui();
   }

@@ -63,6 +63,15 @@
     }
   };
   G.Server = Server;
+  JG.Server = Server;
+
+  const Config = {
+    onlineWs: (window.JG_CONFIG && typeof window.JG_CONFIG.onlineWs === 'string')
+      ? window.JG_CONFIG.onlineWs.trim()
+      : ''
+  };
+  G.Config = Config;
+  JG.Config = Config;
 
   function rectsOverlap(a, b) {
     return a.x1 < b.x2 && a.x2 > b.x1 && a.y1 < b.y2 && a.y2 > b.y1;
@@ -639,7 +648,7 @@
     if (location.protocol !== 'http:' && location.protocol !== 'https:') return;
     Server.probe().then((online) => {
       if (!online) {
-        dom.netAddress.textContent = fallback + '（在线静态部署）';
+        dom.netAddress.textContent = fallback + (Config.onlineWs ? '（在线中继）' : '（无联机服务）');
         return;
       }
       const info = Server.info || {};
@@ -660,13 +669,19 @@
   function setNetAvailability(online) {
     const actions = $('net-actions');
     const lead = $('net-lead');
-    if (actions) actions.classList.toggle('hidden', !online);
+    const remote = Boolean(Config.onlineWs);
+    const available = online || remote;
+    if (actions) actions.classList.toggle('hidden', !available);
     if (lead) {
-      lead.textContent = online
-        ? '两台设备连接同一局域网。房主请用 HOST=0.0.0.0 ./run.sh 启动；Windows 下双击「启动局域网服务器.bat」。对方用房主的局域网 IP 访问。'
-        : '当前是在线静态部署，只提供人机对战、本地双人和训练场。局域网联机需要下载项目并在本机运行 server.py（./run.sh）。';
+      if (online) {
+        lead.textContent = '局域网联机：两台设备连接同一局域网。房主请用 HOST=0.0.0.0 ./run.sh 启动；Windows 下双击「启动局域网服务器.bat」。对方用房主的局域网 IP 访问。';
+      } else if (remote) {
+        lead.textContent = '在线联机：房主创建房间后，把 4 位房间码告诉对方。两台设备可以在不同网络，通过 Cloudflare 中继连接。';
+      } else {
+        lead.textContent = '当前页面没有可用的联机服务。请确认网络，或在本机运行 server.py（./run.sh）。';
+      }
     }
-    if (online) {
+    if (available) {
       setNetStatus('创建房间后，把房间码告诉另一台设备。');
     } else {
       setNetStatus('此页面没有联机房间服务，创建 / 加入房间按钮已隐藏。', true);
@@ -766,7 +781,7 @@
     const mode = App.mode;
     const net = mode === 'net';
     $('select-step-no').textContent = net ? 'LAN' : (step === 0 ? '01' : '02');
-    $('select-title').textContent = net ? '局域网联机 · 选择角色' : step === 0
+    $('select-title').textContent = net ? '联机对战 · 选择角色' : step === 0
       ? (mode === 'training' ? '训练场 · 选择角色' : '选择你的替身使者')
       : (mode === '1p' ? '选择你的对手' : mode === 'training' ? '选择训练假人' : '选择 P2 的角色');
     $('select-player-label').textContent = net

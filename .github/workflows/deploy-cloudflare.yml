@@ -1,4 +1,4 @@
-name: Deploy to Cloudflare Pages
+name: Deploy Pages and WebSocket relay
 
 on:
   push:
@@ -36,3 +36,10 @@ jobs:
             --project-name=jojo-stand-rush
             --branch=main
             --commit-dirty=true
+
+      - name: Publish WebSocket relay
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --config worker/wrangler.toml

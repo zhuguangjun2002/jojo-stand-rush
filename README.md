@@ -1,6 +1,6 @@
 # JOJO 奇妙格斗 · STAND RUSH
 
-一款无需安装、打开即玩的横版 2D 网页格斗游戏。六位替身使者、三张舞台、1P 对 CPU、本地双人对战与局域网联机。角色、替身与头像采用卡通矢量 Canvas 渲染，特效由 Canvas 程序化生成，音频由 Web Audio 实时合成；只有终结演出可选读取 `assets/finishers/` 下的角色参考图，其余素材没有外部图片或音频依赖。
+一款无需安装、打开即玩的横版 2D 网页格斗游戏。六位替身使者、三张舞台、1P 对 CPU、本地双人对战与联机对战（在线 / 局域网）。角色、替身与头像采用卡通矢量 Canvas 渲染，特效由 Canvas 程序化生成，音频由 Web Audio 实时合成；只有终结演出可选读取 `assets/finishers/` 下的角色参考图，其余素材没有外部图片或音频依赖。
 
 ![JOJO 奇妙格斗 标题界面](screenshots/01-title.png)
 
@@ -9,7 +9,7 @@
 **在线试玩：<https://jojo.bigcow.net/>**  
 **源代码：<https://github.com/zhuguangjun2002/jojo-stand-rush>**
 
-> 线上版是 Cloudflare Pages 静态部署，人机对战、本地双人、训练场可以直接玩；局域网联机依赖仓库里的 `server.py`，需要在本机运行。
+> 线上版由 Cloudflare Pages 托管页面，Cloudflare Worker + Durable Objects 中转房间和输入。人机对战、本地双人、训练场和**跨网络在线联机**都可以直接玩；项目里的 `server.py` 仍然用于本地局域网联机。
 
 ## 界面预览
 
@@ -51,11 +51,27 @@ HOST=0.0.0.0 ./run.sh    # 允许同一局域网内的其他设备访问
 
 首次点击页面后音频才会启动，这是浏览器的自动播放限制。
 
-## 局域网联机
+## 联机对战
+
+游戏有两种联机方式，界面和操作完全一样，只是房间中继不同：
+
+- **在线联机**：打开 <https://jojo.bigcow.net/>，通过 Cloudflare Worker + Durable Objects 中继；双方可以在不同网络。
+- **局域网联机**：在本机运行 `server.py`，双方连接同一局域网；不需要互联网或额外账号。
+
+### 在线联机（推荐）
+
+1. 双方打开 <https://jojo.bigcow.net/>。
+2. 房主点「联机对战」→「创建房间」，把生成的 4 位房间码告诉对方。
+3. 对方点「联机对战」→ 输入房间码 →「加入」。
+4. 双方各自选角，两人都选好后自动开始。
+
+在线中继只转发房间控制消息和输入帧，战斗逻辑仍在两台浏览器本地运行。房间码要等房间创建成功后再复制；如果连接失败，刷新页面重试即可。
+
+### 局域网联机
 
 两台设备连接同一局域网即可，不需要互联网或额外账号。
 
-### 房主
+#### 房主
 
 ```bash
 HOST=0.0.0.0 ./run.sh
@@ -69,11 +85,11 @@ python server.py --host 0.0.0.0 --open
 
 然后让另一台设备用 **房主的局域网 IP:端口** 打开游戏，例如 `http://192.168.1.20:8080/`。
 
-### 开始对战
+#### 开始对战
 
 1. 双方打开同一个游戏地址。
-2. 房主点「局域网联机」→「创建房间」，系统会自动生成 4 位房间码，把它告诉对方。
-3. 对方点「局域网联机」→ 输入这个房间码 →「加入」；不要自己编房间码。
+2. 房主点「联机对战」→「创建房间」，系统会自动生成 4 位房间码，把它告诉对方。
+3. 对方点「联机对战」→ 输入这个房间码 →「加入」；不要自己编房间码。
 4. 双方各自选择自己的角色。
 5. 两人都选好后自动开始。
 
@@ -127,13 +143,19 @@ New-NetFirewallRule -DisplayName "JOJO LAN 8080" -Direction Inbound -Protocol TC
 - 路由器是否开启了 AP 隔离 / 访客网络隔离。
 - Radmin VPN 等虚拟网卡可能造成路由混乱，建议联机时先断开。
 
-## 在线部署（Cloudflare Pages）
+## 在线部署（Cloudflare Pages + Workers）
 
-线上版只托管 `index.html`、`styles.css`、`js/`、`assets/`、`voices/` 和 `screenshots/`，不包含 `server.py`，所以**局域网联机在线上版不可用**；页面会自动检测并隐藏创建 / 加入房间的按钮，不会反复请求不存在的心跳接口。
+线上版由两部分组成：
 
-当前生产地址：<https://jojo.bigcow.net/>  
-Cloudflare Pages 项目：`jojo-stand-rush`  
-自定义域名：`jojo.bigcow.net`（CNAME → `jojo-stand-rush.pages.dev`，已开启代理）
+1. **Cloudflare Pages**：托管 `index.html`、`styles.css`、`js/`、`assets/`、`voices/` 和 `screenshots/`。
+2. **Cloudflare Worker + Durable Objects**：`worker/` 中的 `jojo-stand-rush-ws` 负责房间和输入帧中继，域名 `ws.jojo.bigcow.net`。
+
+浏览器在本地 `./run.sh` 环境下优先使用同源 `/__ws`；在静态部署下自动改用 `js/config.js` 里的 `wss://ws.jojo.bigcow.net/__ws`。静态页面不会反复请求不存在的 `/__heartbeat`。
+
+- 当前生产地址：<https://jojo.bigcow.net/>
+- Cloudflare Pages 项目：`jojo-stand-rush`
+- 自定义域名：`jojo.bigcow.net`（CNAME → `jojo-stand-rush.pages.dev`，已开启代理）
+- 联机中继：`jojo-stand-rush-ws`（`ws.jojo.bigcow.net`）
 
 手动部署（需要 `CLOUDFLARE_API_TOKEN`）：
 
@@ -146,14 +168,17 @@ npx wrangler@latest pages deploy "$STAGE" \
   --project-name jojo-stand-rush \
   --branch main \
   --commit-dirty=true
+
+cd worker
+npx wrangler@latest deploy
 ```
 
-仓库内的 GitHub Actions 工作流 `.github/workflows/deploy-cloudflare.yml` 会在 `main` 分支更新后自动发布。首次使用前在 GitHub 仓库的 **Settings → Secrets and variables → Actions** 中添加：
+仓库内的 GitHub Actions 工作流 `.github/workflows/deploy-cloudflare.yml` 会在 `main` 分支更新后自动发布 Pages 和 Worker。首次使用前在 GitHub 仓库的 **Settings → Secrets and variables → Actions** 中添加：
 
-- `CLOUDFLARE_API_TOKEN`：需要 Pages 编辑权限
+- `CLOUDFLARE_API_TOKEN`：需要 Pages 编辑、Workers Scripts 编辑、Durable Objects 编辑权限
 - `CLOUDFLARE_ACCOUNT_ID`：Cloudflare 账户 ID
 
-如果使用自定义域名，请在 Cloudflare Pages 项目的 **Custom domains** 中添加域名，并确保 DNS 中存在指向 `<项目名>.pages.dev` 的代理 CNAME。
+自定义域名需要在 Cloudflare 中保持有效：`jojo.bigcow.net` 指向 Pages，`ws.jojo.bigcow.net` 指向 Worker。
 
 ## 训练场
 
@@ -194,7 +219,7 @@ npx wrangler@latest pages deploy "$STAGE" \
 - 透龙的能量消耗例外：`K` 1 SP，`H` 短按 10 / 长按 25 SP，`L` 50 SP，`U` 50 SP。
 - 东方定助的能量消耗例外：`H` 20 SP，`L` 泡沫弹免费（3 发 / 4 秒冷却）；进化需要 U 达到 150 能量（100 SP + 50 特殊能量），进化后 `L` 变为 40 SP 的超越泡泡、`U` 为 100 SP 超必杀。
 - 标题画面的「CPU 难度」支持新手 / 普通 / 狂热，以及「自定义」：可分别调整 CPU 反应速度、进攻欲望、防御倾向、伤害倍率和脱身概率，设置会自动保存。
-- 标题页的「按键设置」可以分别修改 P1 / P2 的移动、跳跃、防御、攻击、技能、超必杀和闪避按键；点击按键后按下新键即可，自动保存，也可一键恢复默认。局域网联机时两台电脑都使用 P1 键位。
+- 标题页的「按键设置」可以分别修改 P1 / P2 的移动、跳跃、防御、攻击、技能、超必杀和闪避按键；点击按键后按下新键即可，自动保存，也可一键恢复默认。联机对战时双方都使用 P1 键位。
 - 手机/触屏设备在标题页有「触屏设置」：可以在局外直接拖动虚拟按键、调整大小、重置布局，不需要先进战斗暂停。按键设置页里也有「触屏布局」入口。
 - 跳跃有 0.18 秒输入缓冲；按住 `A` / `D`（或方向键）时按跳跃键会优先起跳，并保留移动惯性。
 - **直接朝向**：玩家按 `A` / `←` 会立刻面向左侧，按 `D` / `→` 面向右侧；没有方向输入时才自动面向对手。AI 仍保持自动面向。
@@ -227,7 +252,7 @@ npx wrangler@latest pages deploy "$STAGE" \
 - 暂停菜单里可以直接切换声音和全屏；浏览器支持时，进入全屏后会尝试锁定横屏。iOS Safari 不支持网页全屏，可以「添加到主屏幕」后以独立窗口游玩。
 - 触屏支持多指同时操作：推住轮盘移动或防御的同时可以连按攻击键，长按 `重` / `技` 也会保持按住状态。
 - **自定义按键**：暂停 →「自定义按键」，或直接点底部暂停键上方的 `⚙`。点选轮盘或右侧攻击键后可以拖动位置，并用滑杆或 `−` / `+` 调整大小（70%–160%）。位置与大小自动保存，点「重置」恢复默认；布局会按屏幕比例保存，旋转、全屏或窗口尺寸变化后会重新应用。
-- 手机适合人机对战、训练场和局域网联机；同屏双人对战（2P）仍然需要键盘。
+- 手机适合人机对战、训练场和联机对战；同屏双人对战（2P）仍然需要键盘。
 - 页面切到后台时游戏循环和音频会暂停，回到页面后继续。
 
 ## 规则
@@ -337,11 +362,13 @@ js/game/match.js    回合、镜头、判定、训练模式与替身对拳
 js/game/supers.js   超必杀、终结演出等纯绘制覆盖层
 js/game/render.js   按当前界面分发渲染
 js/game/main.js     键盘 / 触屏输入、自定义按键布局、心跳、主循环与启动
-js/net.js           局域网房间客户端、锁步输入与 WebSocket 消息
+js/net.js           联机房间客户端、锁步输入与 WebSocket 消息
+js/config.js        部署配置：静态站使用的在线中继地址
+worker/             Cloudflare Worker + Durable Object 在线房间中继
 assets/finishers/   终结演出角色图（可选，承太郎 / DIO / 乔鲁诺 / 花京院 / 透龙 / 东方定助）
 voices/             可选语音包目录（含 VOICEVOX 台词、透龙的 tooru_*.mp3/.wav 与定助的 josuke_*.mp3）
 server.py           本地服务器：静态文件、观众心跳、局域网房间与 WebSocket 中继
-.github/workflows/deploy-cloudflare.yml  推送 main 后自动发布到 Cloudflare Pages
+.github/workflows/deploy-cloudflare.yml  推送 main 后自动发布 Pages 与 Worker
 启动游戏.bat        直接打开 index.html
 启动服务器.bat      启动本地 URL 服务并打开浏览器
 启动局域网服务器.bat 监听 0.0.0.0，供同一局域网的其他设备联机
@@ -366,7 +393,7 @@ HANDOVER.md         交接文档：当前机制、平衡、测试、已知限制
 - 普通攻击判定锚定在替身拳头的实际绘制位置，判定覆盖从身体到拳头的整段距离；受击判定仍然使用角色本体。
 - STAND CLASH 是独立于普通战斗的暂停式小游戏：双方按住 K 触发，连按计数到 50，败者扣 30% 最大生命值；F 长按消耗 50 SP 可脱离。
 - AI 使用威胁感知、反应延迟、格挡/跳躲/闪避、硬直惩罚、对空、连段计划、技能射程检查和进退走位；难度和自定义参数直接驱动这些数值。
-- 局域网联机由本地 Python 服务器的 WebSocket 房间中继输入，双方按帧锁步推进；影响玩法的随机（青蛙游走）使用共享 seed，纯视觉随机仍由各客户端本地生成。
+- 联机由 WebSocket 房间中继输入，双方按帧锁步推进；本地 `server.py` 负责局域网，Cloudflare Worker + Durable Objects 负责在线。影响玩法的随机（青蛙游走）使用共享 seed，纯视觉随机仍由各客户端本地生成。
 - 长按 K / 2 会先出重击，随后自动衔接替身连打；花京院为绿宝石连射。
 - 用超必杀终结对手、或在赛点 KO 时会进入约 3 秒的处刑演出：镜头拉近、上下黑边、KO 冲击，叠放对应角色的终结参考图，并在画面底部显示终结台词（承太郎「闭嘴，你这家伙」、DIO「The World」、乔鲁诺「我乔鲁诺.乔巴拿更想要成为【黑帮巨星】」、花京院「接招吧，半径20米的绿宝石水花」、东方定助「泡沫，会夺走一切」）。
 - 胜负结算带角色专属演出：承太郎抬手压帽 / 被切成干净的两半，DIO 仰头狂笑 / 碎成一块块，乔鲁诺扯衣领 / 倒在地上，花京院伸手指向对手嘲讽 / 胸口出现一个无血腥的圆形空洞后倒下。
@@ -402,7 +429,8 @@ HANDOVER.md         交接文档：当前机制、平衡、测试、已知限制
 - 奇迹与你石头与枯木虫改为只朝施放方向直线移动，不再追踪转向。
 - 新增 `HANDOVER.md`，记录当前机制、平衡、测试命令、已知限制与后续建议。
 - 项目迁移到 Linux Mint；清理 `.bat` 里写死的本机 Python 路径，移除不可移植的 Windows `.lnk` 快捷方式。
-- 新增 Cloudflare Pages 部署：<https://jojo.bigcow.net/>，GitHub Actions 在 `main` 更新后自动发布；静态部署会自动隐藏局域网联机入口并停止心跳请求。
+- 新增 Cloudflare Pages 部署：<https://jojo.bigcow.net/>，GitHub Actions 在 `main` 更新后自动发布；静态部署会停止无用的心跳请求。
+- 新增在线联机：Cloudflare Worker + Durable Objects 中继房间与输入帧，`ws.jojo.bigcow.net` 为专用 WebSocket 域名；本地 `./run.sh` 仍优先使用同源局域网中继。
 
 ### 2026-11-12
 

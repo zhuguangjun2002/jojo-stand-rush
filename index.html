@@ -168,7 +168,7 @@
             </button>
             <button id="btn-net" class="menu-btn" data-sfx="ui">
               <span class="btn-index">04</span>
-              <span class="btn-copy"><b>局域网联机</b><small>LAN · 同网双人对战</small></span>
+              <span class="btn-copy"><b>联机对战</b><small>ONLINE · 跨网络双人</small></span>
               <span class="btn-arrow">→</span>
             </button>
           </div>
@@ -229,12 +229,12 @@
         <div class="title-stamp">JOJO's<br>BIZARRE<br>FIGHTING</div>
       </section>
 
-      <!-- 局域网联机 -->
+      <!-- 联机对战 -->
       <section id="screen-net" class="screen net-screen hidden">
         <div class="net-panel">
-          <div class="kicker">LAN BATTLE</div>
-          <h2>局域网联机</h2>
-          <p id="net-lead" class="net-lead">两台设备连接同一局域网。房主请用 <code>HOST=0.0.0.0 ./run.sh</code> 启动；Windows 下双击 <code>启动局域网服务器.bat</code>。对方用房主的局域网 IP 访问。</p>
+          <div class="kicker">ONLINE BATTLE</div>
+          <h2>联机对战</h2>
+          <p id="net-lead" class="net-lead">在线联机：房主创建房间后，把 4 位房间码告诉对方。两台设备可以在不同网络，通过 Cloudflare 中继连接。</p>
           <div class="net-address">当前地址：<b id="net-address">—</b></div>
           <div id="net-actions" class="net-actions hidden">
             <button id="btn-net-host" class="net-btn primary" type="button">
@@ -271,7 +271,7 @@
               <div id="keys-p2" class="keys-list"></div>
             </div>
           </div>
-          <div class="keys-status" id="keys-status">局域网联机时，两台电脑都使用 P1 键位。</div>
+          <div class="keys-status" id="keys-status">联机对战时，双方都使用 P1 键位。</div>
           <div class="keys-actions">
             <button id="btn-touch-settings" class="text-btn" type="button">触屏布局</button>
             <button id="btn-keys-reset" class="text-btn" type="button">恢复默认</button>
@@ -365,7 +365,7 @@
                 <li><b>生命青蛙</b>青蛙会在场内徘徊；对手攻击到它时，乔鲁诺直接扣除对手当前最大生命值的 5%。青蛙直到消失都没被碰过，则返还 25 SP。</li>
                 <li><b>替身对拳</b>双方近距离同时长按 <kbd>K</kbd> / <kbd>2</kbd> 会进入 STAND CLASH。快速连按 K / 2，先到 50 次的一方获胜，对手直接损失 30% 最大生命值；长按 <kbd>F</kbd> / 右 <kbd>Shift</kbd> 0.75 秒可消耗 50 SP 脱离。</li>
                 <li><b>攻击判定</b>普通攻击的判定跟随替身拳头位置，从身体到拳头之间都有判定；被攻击的仍然是角色本体。J 轻击的判定远端约 920，比 K 重击更远，拳风也更长。普通攻击命中不会把对手横向推开，J → K 等轻 / 重衔接可以稳定连上。</li>
-                <li><b>局域网联机</b>标题菜单选择「局域网联机」。房主创建房间并把 4 位房间码告诉对方；对方加入后，双方各自选角，两人都选好后自动开始。联机双方都使用 P1 键位（WASD / Space / J/K/L/H/U/F），方向键和数字键也可用。</li>
+                <li><b>联机对战</b>标题菜单选择「联机对战」。房主创建房间并把 4 位房间码告诉对方；对方加入后，双方各自选角，两人都选好后自动开始。在线版通过 Cloudflare 中继连接，局域网版通过本地 server.py 连接。联机双方都使用 P1 键位（WASD / Space / J/K/L/H/U/F），方向键和数字键也可用。</li>
                 <li><b>按键设置</b>标题页的「按键设置」可以改 P1 / P2 的全部按键，点击后按下新键即可，自动保存。手机端还可以在标题页点「触屏设置」直接拖动和缩放虚拟按键。</li>
                 <li><b>乔鲁诺觉醒</b>体力低于 25% 且 SP 满时按 <kbd>U</kbd> 前冲抓取；命中才进入镇魂曲，落空清空 SP。</li>
               </ul>
@@ -471,6 +471,7 @@
     </div>
   </div>
 
+  <script src="js/config.js"></script>
   <script src="js/data.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/art.js"></script>

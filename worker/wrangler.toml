@@ -1,0 +1,19 @@
+name = "jojo-stand-rush-ws"
+main = "src/index.mjs"
+compatibility_date = "2026-11-16"
+workers_dev = true
+
+routes = [
+  { pattern = "ws.jojo.bigcow.net", custom_domain = true }
+]
+
+# One Durable Object per room code. The object only relays JSON control
+# messages; both browsers still run the deterministic match locally.
+[durable_objects]
+bindings = [
+  { name = "ROOMS", class_name = "Room" }
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Room"]
