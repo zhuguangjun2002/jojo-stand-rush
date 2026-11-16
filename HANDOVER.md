@@ -202,6 +202,9 @@ cd ~/webgame-test && npx playwright test
 - [ ] `git diff --check` 通过
 - [ ] Playwright smoke 4/4 通过
 - [ ] 在线联机：两个独立浏览器创建 / 加入房间，双方选角后能进入战斗并交换输入帧
+- [ ] 在线延迟显示：HUD 和联机面板显示 `ms · 帧`
+- [ ] 在线动态延迟：模拟 RTT 600ms 后双方输入延迟上调，网络恢复后降回
+- [ ] 在线掉线重连：单方 `JG.Net.ws.close()` 和双方同时 close 都能恢复同一帧
 - [ ] 本地 `./run.sh` 仍走同源 `/__ws`，没有被在线中继覆盖
 - [ ] 东方定助：H 偷属性、L 3 发泡沫弹、受击 +2 特殊、普通 SP 获取的 50% 转化特殊、U 150 能量进化
 - [ ] 东方定助进化后：L 40 SP 超越泡泡、U 100 SP 超必杀、无视奇迹与你灾厄
@@ -213,5 +216,6 @@ cd ~/webgame-test && npx playwright test
 
 1. 用实际对战数据继续调东方定助：特殊能量（受击 +2 + 普通 SP 50%）是否过快、150 能量进化是否太慢。
 2. 观察奇迹与你 3 发石头 + 5 秒冷却后的压制力，必要时调 4/5 秒冷却或第 3 发伤害。
-3. 如果需要，补一个仓库内的 `tests/` 目录，把本次交接用的东方定助 / 奇迹与你 headless 断言固化成正式测试。
-4. 继续补充 VOICEVOX 语音时，同步更新 `voices/README.txt` 和 `voices/VOICEVOX-CREDITS.txt`。
+3. 在线联机下一步：把 4 位房间码扩到 6 位、增加创建房间限流/过期清理；如果目标玩家 RTT 长期高于 300ms，评估 WebRTC 直连或更近的中继节点。
+4. 如果需要，补一个仓库内的 `tests/` 目录，把在线双人、延迟调整、掉线重连和东方定助 / 奇迹与你 headless 断言固化成正式测试。
+5. 继续补充 VOICEVOX 语音时，同步更新 `voices/README.txt` 和 `voices/VOICEVOX-CREDITS.txt`。
