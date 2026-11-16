@@ -38,6 +38,36 @@ function cleanFrame(value) {
   return frame;
 }
 
+// Put the room near the edge the host's first request arrived at. Without
+// a hint a Durable Object may live far from both players, adding hundreds
+// of milliseconds of RTT (and therefore input delay) to every match.
+const REGION_COLOS = {
+  wnam: ['SJC', 'LAX', 'SEA', 'SFO', 'PDX', 'LAS', 'PHX', 'DEN', 'YVR', 'YYC', 'SLC'],
+  enam: ['DFW', 'ORD', 'ATL', 'MIA', 'IAD', 'EWR', 'BOS', 'YYZ', 'YUL', 'MSP', 'DTW', 'CLT', 'IAH'],
+  weur: ['LHR', 'AMS', 'FRA', 'CDG', 'MAD', 'BCN', 'MXP', 'FCO', 'WAW', 'ARN', 'HEL', 'OSL', 'CPH', 'ZRH', 'VIE', 'BRU', 'DUB', 'LIS', 'PRG', 'BUD', 'MUC', 'BER'],
+  eeur: ['SVO', 'DME', 'LED', 'KBP', 'OTP', 'SOF', 'BEG', 'ZAG'],
+  apac: ['HKG', 'TPE', 'SIN', 'NRT', 'KIX', 'ICN', 'BKK', 'KUL', 'CGK', 'MNL', 'SGN', 'HAN', 'DEL', 'BOM', 'CCU', 'BLR', 'MAA'],
+  oc: ['SYD', 'MEL', 'BNE', 'PER', 'AKL'],
+  sam: ['GRU', 'EZE', 'SCL', 'BOG', 'LIM', 'GIG', 'CGH'],
+  afr: ['JNB', 'CPT', 'LOS', 'NBO', 'CAI', 'DUR']
+};
+
+function locationHint(request) {
+  const cf = request.cf || {};
+  for (const [hint, colos] of Object.entries(REGION_COLOS)) {
+    if (colos.includes(cf.colo)) return hint;
+  }
+  switch (cf.continent) {
+    case 'AS': return 'apac';
+    case 'EU': return 'weur';
+    case 'NA': return 'wnam';
+    case 'SA': return 'sam';
+    case 'OC': return 'oc';
+    case 'AF': return 'afr';
+    default: return 'apac';
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -57,7 +87,7 @@ export default {
     }
 
     const id = env.ROOMS.idFromName(room);
-    return env.ROOMS.get(id).fetch(request);
+    return env.ROOMS.get(id, { locationHint: locationHint(request) }).fetch(request);
   }
 };
 

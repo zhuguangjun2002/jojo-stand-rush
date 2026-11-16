@@ -43,7 +43,7 @@ HOST=0.0.0.0 PORT=8080 ./run.sh
 - **本地局域网**：`./run.sh` 启动 `server.py`，浏览器优先使用同源 `/__ws`；只有静态页面才回退到在线中继。
 - **协议**：与 `server.py` 一致，包含 `choice` / `peer-choice` / `start` / `rematch` / `input` / `frame` / `leave`；在线版额外支持 `ping` / `pong` / `latency` / `resume`。Durable Object 只做输入配对，不运行战斗逻辑。
 - **房间**：一个 4 位房间码对应一个 Durable Object；房主先创建，guest 再加入。双方每帧交换输入后锁步推进。
-- **延迟**：客户端每 2 秒 ping 中继，取最近 5 次 RTT 的中位数；开局/再战时按 `max(本地 RTT, 对方 RTT)` 自动选择 6–24 帧输入延迟（约 RTT + 3 帧）。HUD 和联机面板显示实测延迟与当前输入延迟。
+- **延迟**：客户端每 2 秒 ping 中继，取最近 5 次 RTT 的中位数；开局/再战时按 `max(本地 RTT, 对方 RTT)` 自动选择 6–24 帧输入延迟（约 RTT/2 + 3 帧）。HUD 和联机面板显示实测延迟与当前输入延迟。
 - **掉线重连**：WebSocket 断开后客户端冻结画面并按 0.5–5 秒退避重连同一房间/角色；Durable Object 保留 30 秒宽限期和最近 1200 个已配对帧（约 20 秒），重连方发送 `resume(frame)` 后补齐漏掉的帧。超过宽限期或历史不足会提示重新建房。刷新页面/关闭标签页无法恢复对局。
 - **配置**：`js/config.js` 的 `onlineWs` 是静态部署使用的中继地址；`onlineInputDelay` 是测速完成前的初始延迟；设为空字符串可关闭在线联机。
 - **部署**：GitHub Actions 在 `main` 更新后同时发布 Pages 和 Worker。

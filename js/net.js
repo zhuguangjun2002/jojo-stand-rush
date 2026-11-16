@@ -313,8 +313,10 @@
       if (!this.usingRemote) return 0;
       const rtt = Math.max(this.rtt || 0, this.peerRtt || 0);
       if (!rtt) return this.inputDelay || 12;
-      // One frame is 16.67 ms. Three extra frames cover jitter.
-      return Math.max(6, Math.min(24, Math.ceil(rtt / (1000 / 60)) + 3));
+      // Inputs only need to cover one-way latency; RTT / 2 is the useful
+      // number here. Three extra frames cover jitter and scheduling.
+      const oneWay = rtt / 2;
+      return Math.max(6, Math.min(24, Math.ceil(oneWay / (1000 / 60)) + 3));
     },
 
     latencyInfo() {

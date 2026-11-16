@@ -9,6 +9,6 @@ window.JG_CONFIG = {
   onlineWs: 'wss://ws.jojo.bigcow.net/__ws',
   // Initial frames of input delay for online play (60 fps). Before a match
   // starts, Net.recommendedDelay() raises or lowers this from the measured
-  // round trip (roughly RTT + 3 frames, clamped to 6-24).
+  // round trip (roughly RTT/2 + 3 frames, clamped to 6-24).
   onlineInputDelay: 12
 };
