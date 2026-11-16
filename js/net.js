@@ -62,6 +62,8 @@
     peerRtt: null,
     rttSamples: [],
     peerRttSamples: [],
+    lastDelayChange: 0,
+    lowRttSince: 0,
 
     on(event, fn) {
       (this.listeners[event] || (this.listeners[event] = [])).push(fn);
@@ -127,6 +129,8 @@
       this.peerRtt = null;
       this.rttSamples = [];
       this.peerRttSamples = [];
+      this.lastDelayChange = 0;
+      this.lowRttSince = 0;
       this.resetFrames();
       this.manualClose = false;
 
@@ -309,6 +313,49 @@
       return this.inputDelay;
     },
 
+    applyDelay(value) {
+      const raw = Number(value);
+      if (!Number.isFinite(raw)) return this.inputDelay;
+      const next = Math.max(0, Math.min(30, Math.round(raw)));
+      if (next === this.inputDelay) return this.inputDelay;
+
+      // Raising the delay mid-match needs neutral inputs for the new gap,
+      // otherwise the other side waits for frames that were never sent.
+      if (next > this.inputDelay && this.sentFrame >= 0) {
+        const target = this.nextFrame + next;
+        for (let frame = this.sentFrame + 1; frame <= target; frame++) {
+          if (!this.sendInputAt(frame, NEUTRAL_INPUT)) break;
+        }
+      }
+      this.inputDelay = next;
+      this.emit('latency', this.latencyInfo());
+      return this.inputDelay;
+    },
+
+    maybeAdjustDelay() {
+      if (!this.usingRemote || !this.isHost() || this.manualClose) return;
+      if (!this.ws || this.ws.readyState !== 1) return;
+      const target = this.recommendedDelay();
+      const now = performance.now();
+      if (target > this.inputDelay) {
+        if (now - this.lastDelayChange < 1500) return;
+        this.lastDelayChange = now;
+        this.send({ type: 'delay', delay: target });
+        this.applyDelay(target);
+        return;
+      }
+      if (target < this.inputDelay - 2) {
+        if (!this.lowRttSince) this.lowRttSince = now;
+        if (now - this.lowRttSince < 5000 || now - this.lastDelayChange < 2000) return;
+        this.lastDelayChange = now;
+        this.lowRttSince = 0;
+        this.send({ type: 'delay', delay: target });
+        this.applyDelay(target);
+        return;
+      }
+      this.lowRttSince = 0;
+    },
+
     recommendedDelay() {
       if (!this.usingRemote) return 0;
       const rtt = Math.max(this.rtt || 0, this.peerRtt || 0);
@@ -349,6 +396,8 @@
       this.sentFrame = -1;
       this.frames = new Map();
       this.sentInputs = new Map();
+      this.lastDelayChange = 0;
+      this.lowRttSince = 0;
     },
 
     sendInputAt(frame, input) {
@@ -414,6 +463,7 @@
           this.localIndex = this.role === 'host' ? 0 : 1;
           this.peerConnected = !!msg.peer;
           this.lastError = null;
+          if (msg.delay != null) this.applyDelay(msg.delay);
           if (wasResuming && !msg.resumed) {
             this.connectedOnce = false;
             this.emit('resync-required', { reason: 'room-reset' });
@@ -440,6 +490,7 @@
             if (this.peerRttSamples.length > 5) this.peerRttSamples.shift();
             this.peerRtt = median(this.peerRttSamples);
             this.emit('latency', this.latencyInfo());
+            this.maybeAdjustDelay();
           }
           break;
         }
@@ -469,10 +520,14 @@
               this.rtt = median(this.rttSamples);
               this.send({ type: 'latency', rtt: this.rtt });
               this.emit('latency', this.latencyInfo());
+              this.maybeAdjustDelay();
             }
           }
           break;
         }
+        case 'delay':
+          this.applyDelay(msg.delay);
+          break;
         case 'resync-required':
           this.emit('resync-required', msg);
           break;

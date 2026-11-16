@@ -103,6 +103,7 @@ export class Room {
     this.latency = { host: null, guest: null };
     this.history = [];
     this.lastPaired = -1;
+    this.delay = 12;
   }
 
   async fetch(request) {
@@ -148,7 +149,8 @@ export class Room {
       role,
       room,
       peer: Boolean(peer),
-      resumed
+      resumed,
+      delay: this.delay
     });
     if (peer) this.send(peer, { type: 'peer', connected: true });
 
@@ -265,6 +267,7 @@ export class Room {
         const delay = Number.isFinite(rawDelay)
           ? Math.max(0, Math.min(30, Math.round(rawDelay)))
           : null;
+        if (delay != null) this.delay = delay;
         if (other) {
           this.send(other, {
             type: message.type,
@@ -274,6 +277,17 @@ export class Room {
             ...(delay == null ? {} : { delay })
           });
         }
+        return;
+      }
+
+      case 'delay': {
+        if (role !== 'host') return;
+        const rawDelay = Number(message.delay);
+        if (!Number.isFinite(rawDelay)) return;
+        this.delay = Math.max(0, Math.min(30, Math.round(rawDelay)));
+        const payload = { type: 'delay', delay: this.delay };
+        this.send(socket, payload);
+        if (other) this.send(other, payload);
         return;
       }
 
