@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0912">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>JOJO 奇妙格斗 · STAND RUSH</title>
+  <meta name="description" content="非官方同人网页格斗游戏：选择替身使者，在杜王町、开罗与罗马展开 1P / 2P 对战。">
+  <link rel="canonical" href="https://jojo.bigcow.net/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="JOJO 奇妙格斗 · STAND RUSH">
+  <meta property="og:title" content="JOJO 奇妙格斗 · STAND RUSH">
+  <meta property="og:description" content="无需安装、打开即玩的横版 2D 替身格斗：1P 对 CPU、本地双人、训练场。">
+  <meta property="og:url" content="https://jojo.bigcow.net/">
+  <meta property="og:image" content="https://jojo.bigcow.net/screenshots/01-title.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="JOJO 奇妙格斗 · STAND RUSH">
+  <meta name="twitter:description" content="无需安装、打开即玩的横版 2D 替身格斗。">
+  <meta name="twitter:image" content="https://jojo.bigcow.net/screenshots/01-title.png">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b0912'/%3E%3Cpath d='M32 7l6.3 18.7L57 32l-18.7 6.3L32 57l-6.3-18.7L7 32l18.7-6.3z' fill='%23ffc94a'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="viewport">
+    <div id="frame">
+      <canvas id="game" width="1280" height="720" aria-label="JOJO 奇妙格斗游戏画面"></canvas>
+
+      <!-- 战斗 HUD -->
+      <div id="hud" class="hidden" aria-hidden="true">
+        <div class="hud-side p1">
+          <div class="hud-portrait-wrap">
+            <canvas id="p1-portrait" class="hud-portrait" width="112" height="112"></canvas>
+            <div id="p1-pips" class="round-pips"><i></i><i></i></div>
+          </div>
+          <div class="hud-bars">
+            <div class="name-row">
+              <strong id="p1-name">空条承太郎</strong>
+              <span id="p1-stand">STAR PLATINUM</span>
+            </div>
+            <div class="hp-track">
+              <div id="p1-hp-ghost" class="hp-ghost"></div>
+              <div id="p1-hp-fill" class="hp-fill"></div>
+              <div class="hp-shine"></div>
+            </div>
+            <div class="meter-row">
+              <span class="meter-label">SP</span>
+              <div class="meter-track"><div id="p1-meter" class="meter-fill"></div><i></i><i></i><i></i></div>
+              <div id="p1-special-track" class="special-track" title="特殊能量 0/50">
+                <div id="p1-special-meter" class="special-fill"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="timer-wrap">
+          <div id="round-label" class="round-label">ROUND 1</div>
+          <div id="timer" class="timer">99</div>
+          <div id="timer-rule" class="timer-rule">FIRST TO 2</div>
+        </div>
+
+        <div class="hud-side p2">
+          <div class="hud-portrait-wrap">
+            <canvas id="p2-portrait" class="hud-portrait" width="112" height="112"></canvas>
+            <div id="p2-pips" class="round-pips"><i></i><i></i></div>
+          </div>
+          <div class="hud-bars">
+            <div class="name-row">
+              <span id="p2-stand">THE WORLD</span>
+              <strong id="p2-name">DIO</strong>
+            </div>
+            <div class="hp-track">
+              <div id="p2-hp-ghost" class="hp-ghost"></div>
+              <div id="p2-hp-fill" class="hp-fill"></div>
+              <div class="hp-shine"></div>
+            </div>
+            <div class="meter-row">
+              <div class="meter-track"><div id="p2-meter" class="meter-fill"></div><i></i><i></i><i></i></div>
+              <div id="p2-special-track" class="special-track" title="特殊能量 0/50">
+                <div id="p2-special-meter" class="special-fill"></div>
+              </div>
+              <span class="meter-label">SP</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="combo-p1" class="combo p1"><b>0</b><span>HIT</span><em>COMBO</em></div>
+      <div id="combo-p2" class="combo p2"><b>0</b><span>HIT</span><em>COMBO</em></div>
+
+      <div id="battle-quotes" class="battle-quotes" aria-hidden="true">
+        <div id="quote-p1" class="fighter-quote p1"><span>P1</span><p>“Yare yare daze…”</p></div>
+        <div id="quote-p2" class="fighter-quote p2"><span>P2</span><p>“WRYYYYYY！”</p></div>
+      </div>
+
+      <div id="announce-layer" aria-live="polite">
+        <div id="announce-main" class="announce-main"></div>
+        <div id="announce-sub" class="announce-sub"></div>
+      </div>
+
+      <div id="super-banner" class="super-banner">
+        <div class="super-kicker">STAND RUSH</div>
+        <div id="super-name" class="super-name"></div>
+        <div id="super-stand" class="super-stand"></div>
+      </div>
+
+      <div id="clash-overlay" class="clash-overlay hidden" aria-live="polite">
+        <div class="clash-title">STAND CLASH</div>
+        <div class="clash-sub">替身对拳 · 先到 50 次</div>
+        <div class="clash-row">
+          <div class="clash-side p1">
+            <span id="clash-p1-name">P1</span>
+            <div class="clash-track"><i id="clash-p1-fill"></i></div>
+            <b id="clash-p1-count">0 / 50</b>
+          </div>
+          <div class="clash-vs">VS</div>
+          <div class="clash-side p2">
+            <span id="clash-p2-name">P2</span>
+            <div class="clash-track"><i id="clash-p2-fill"></i></div>
+            <b id="clash-p2-count">0 / 50</b>
+          </div>
+        </div>
+        <div class="clash-hint">快速连按 <kbd>K</kbd> / <kbd>2</kbd> · 先到 50 次</div>
+        <div class="clash-escape">长按 <kbd>F</kbd> / 右 <kbd>Shift</kbd> 0.75 秒 · 消耗 50 SP 脱离</div>
+      </div>
+
+      <div id="control-hint" class="control-hint"></div>
+      <div id="training-panel" class="training-panel hidden">
+        <b>TRAINING</b>
+        <span id="training-dummy">假人：站立</span>
+        <div class="training-actions">
+          <button id="btn-training-reset" type="button"><kbd>R</kbd> 重置</button>
+          <button id="btn-training-guard" type="button"><kbd>T</kbd> 假人防御</button>
+        </div>
+        <small>无限 HP/SP · 假人不会主动攻击</small>
+      </div>
+      <div id="toast" class="toast"></div>
+
+      <!-- 标题 -->
+      <section id="screen-title" class="screen title-screen">
+        <div class="title-noise"></div>
+        <div class="title-copy">
+          <div class="kicker"><span>★</span> 非官方同人 · FAN-MADE TRIBUTE <span>★</span></div>
+          <div class="logo-lockup">
+            <h1 class="logo">JOJO<span class="logo-star">★</span></h1>
+            <div class="jp-title">奇妙格斗</div>
+            <div class="en-title">STAND RUSH</div>
+          </div>
+          <p class="tagline">替身，是灵魂的具象。<br>在这个夜晚，把拳头和命运一起挥出去。</p>
+
+          <div class="menu">
+            <button id="btn-1p" class="menu-btn primary" data-sfx="ui">
+              <span class="btn-index">01</span>
+              <span class="btn-copy"><b>人机对战</b><small>1P VS CPU · 可自定义</small></span>
+              <span class="btn-arrow">→</span>
+            </button>
+            <button id="btn-2p" class="menu-btn" data-sfx="ui">
+              <span class="btn-index">02</span>
+              <span class="btn-copy"><b>双人对战</b><small>2P LOCAL · 同屏对决</small></span>
+              <span class="btn-arrow">→</span>
+            </button>
+            <button id="btn-training" class="menu-btn" data-sfx="ui">
+              <span class="btn-index">03</span>
+              <span class="btn-copy"><b>训练场</b><small>TRAINING · 无限 HP/SP · 假人</small></span>
+              <span class="btn-arrow">→</span>
+            </button>
+            <button id="btn-net" class="menu-btn" data-sfx="ui">
+              <span class="btn-index">04</span>
+              <span class="btn-copy"><b>局域网联机</b><small>LAN · 同网双人对战</small></span>
+              <span class="btn-arrow">→</span>
+            </button>
+          </div>
+
+          <div class="difficulty-row" aria-label="CPU 难度">
+            <span class="diff-label">CPU 难度</span>
+            <button class="diff-chip" data-diff="easy">新手</button>
+            <button class="diff-chip active" data-diff="normal">普通</button>
+            <button class="diff-chip" data-diff="hard">狂热</button>
+            <button class="diff-chip" data-diff="custom">自定义</button>
+          </div>
+
+          <div id="ai-custom-panel" class="ai-custom-panel hidden">
+            <div class="ai-custom-head">
+              <b>CPU 自定义</b>
+              <button id="btn-ai-custom-close" type="button" aria-label="关闭">×</button>
+            </div>
+            <label class="ai-custom-row">
+              <span>反应速度</span>
+              <input id="ai-react" type="range" min="0.08" max="0.60" step="0.01" value="0.27">
+              <output id="ai-react-out">0.27s</output>
+            </label>
+            <label class="ai-custom-row">
+              <span>进攻欲望</span>
+              <input id="ai-aggression" type="range" min="0" max="1" step="0.01" value="0.76">
+              <output id="ai-aggression-out">76%</output>
+            </label>
+            <label class="ai-custom-row">
+              <span>防御倾向</span>
+              <input id="ai-block" type="range" min="0" max="1" step="0.01" value="0.44">
+              <output id="ai-block-out">44%</output>
+            </label>
+            <label class="ai-custom-row">
+              <span>伤害倍率</span>
+              <input id="ai-damage" type="range" min="0.50" max="1.50" step="0.01" value="1.00">
+              <output id="ai-damage-out">100%</output>
+            </label>
+            <label class="ai-custom-row">
+              <span>脱身概率</span>
+              <input id="ai-escape" type="range" min="0" max="0.04" step="0.001" value="0.012">
+              <output id="ai-escape-out">1.2%</output>
+            </label>
+            <small>只影响人机对战，修改会自动保存</small>
+          </div>
+
+          <div class="title-actions">
+            <button id="btn-help" class="text-btn" data-sfx="ui">操作说明</button>
+            <span class="dot">/</span>
+            <button id="btn-keys" class="text-btn" data-sfx="ui">按键设置</button>
+            <span class="dot">/</span>
+            <button id="btn-mute" class="text-btn" data-sfx="ui">声音：开</button>
+            <span class="dot">/</span>
+            <button id="btn-fullscreen" class="text-btn" data-sfx="ui">全屏</button>
+            <button id="btn-touch-settings-title" class="text-btn" data-sfx="ui">触屏设置</button>
+          </div>
+          <div class="fan-note">角色与世界观版权归荒木飞吕彦及集英社所有。本作为非商业同人练习。<br>音声合成：VOICEVOX（青山龍星 / 玄野武宏 / 白上虎太郎 / 剣崎雌雄）</div>
+        </div>
+        <div class="title-stamp">JOJO's<br>BIZARRE<br>FIGHTING</div>
+      </section>
+
+      <!-- 局域网联机 -->
+      <section id="screen-net" class="screen net-screen hidden">
+        <div class="net-panel">
+          <div class="kicker">LAN BATTLE</div>
+          <h2>局域网联机</h2>
+          <p id="net-lead" class="net-lead">两台设备连接同一局域网。房主请用 <code>HOST=0.0.0.0 ./run.sh</code> 启动；Windows 下双击 <code>启动局域网服务器.bat</code>。对方用房主的局域网 IP 访问。</p>
+          <div class="net-address">当前地址：<b id="net-address">—</b></div>
+          <div id="net-actions" class="net-actions hidden">
+            <button id="btn-net-host" class="net-btn primary" type="button">
+              <b>创建房间</b><small>HOST</small>
+            </button>
+            <div class="net-join">
+              <input id="net-code" type="text" maxlength="8" autocomplete="off" autocapitalize="characters" enterkeyhint="go" spellcheck="false" placeholder="输入房间码">
+              <button id="btn-net-join" class="net-btn" type="button"><b>加入</b><small>JOIN</small></button>
+            </div>
+          </div>
+          <div id="net-status" class="net-status">创建房间后，把房间码告诉另一台设备。</div>
+          <div id="net-room" class="net-room hidden">房间码 <b id="net-room-code">----</b></div>
+          <button id="btn-net-back" class="text-btn net-back" type="button" data-sfx="ui">返回标题</button>
+        </div>
+      </section>
+
+      <!-- 按键设置 -->
+      <section id="screen-keys" class="screen keys-screen hidden">
+        <div class="keys-panel">
+          <div class="keys-header">
+            <div>
+              <div class="kicker">CONTROL SETUP</div>
+              <h2>按键设置</h2>
+            </div>
+            <p>点击一个按键，然后按下新的键。设置会保存在本机。</p>
+          </div>
+          <div class="keys-columns">
+            <div class="keys-col">
+              <h3>P1 / 联机双方</h3>
+              <div id="keys-p1" class="keys-list"></div>
+            </div>
+            <div class="keys-col">
+              <h3>P2 / 本地双人</h3>
+              <div id="keys-p2" class="keys-list"></div>
+            </div>
+          </div>
+          <div class="keys-status" id="keys-status">局域网联机时，两台电脑都使用 P1 键位。</div>
+          <div class="keys-actions">
+            <button id="btn-touch-settings" class="text-btn" type="button">触屏布局</button>
+            <button id="btn-keys-reset" class="text-btn" type="button">恢复默认</button>
+            <button id="btn-keys-back" class="text-btn primary-small" type="button">返回标题</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 选人 -->
+      <section id="screen-select" class="screen select-screen hidden">
+        <header class="select-header">
+          <div>
+            <div class="kicker"><span id="select-step-no">01</span> / CHARACTER SELECT</div>
+            <h2 id="select-title">选择你的替身使者</h2>
+          </div>
+          <div class="select-step-card">
+            <span id="select-player-label">PLAYER 1</span>
+            <b id="select-step-hint">P1 请选择角色</b>
+          </div>
+        </header>
+
+        <div id="roster" class="roster"></div>
+
+        <footer class="select-footer">
+          <div class="select-help"><kbd>←</kbd><kbd>→</kbd> 选择　<kbd>Enter</kbd> 确认　<kbd>Esc</kbd> 返回</div>
+          <div class="select-footer-actions">
+            <button id="btn-random" class="ghost-btn" data-sfx="ui">随机选择</button>
+            <button id="btn-select-back" class="ghost-btn" data-sfx="ui">返回标题</button>
+          </div>
+        </footer>
+      </section>
+
+      <!-- 操作说明 -->
+      <section id="screen-help" class="screen help-screen hidden">
+        <div class="help-panel">
+          <header class="help-header">
+            <div>
+              <div class="kicker">HOW TO FIGHT</div>
+              <h2>把「替身」打出来</h2>
+            </div>
+            <button id="btn-help-close" class="close-btn" data-sfx="ui" aria-label="关闭">×</button>
+          </header>
+
+          <div class="help-grid">
+            <div class="help-col p1-col">
+              <div class="help-player"><span>P1</span> 键盘左侧</div>
+              <div class="key-row"><kbd>A</kbd><kbd>D</kbd><em>移动</em></div>
+              <div class="key-row"><kbd>Space</kbd><em>跳跃 / 连打中打断起跳</em></div>
+              <div class="key-row"><kbd>S</kbd><em>下蹲 · 替身格挡</em></div>
+              <div class="key-row"><kbd>J</kbd><em>轻攻击 · 可连段</em></div>
+              <div class="key-row"><kbd>K</kbd><em>重攻击 / 长按替身连打</em></div>
+              <div class="key-row"><kbd>L</kbd><em>二技能 · CD 8 秒</em></div>
+              <div class="key-row"><kbd>H</kbd><em>追击技 · 25 SP · CD 5 秒</em></div>
+              <div class="key-row"><kbd>U</kbd><em>超必杀 · 100 SP</em></div>
+              <div class="key-row"><kbd>F</kbd><em>闪避 / 受击脱离（25 SP）</em></div>
+            </div>
+            <div class="help-col p2-col">
+              <div class="help-player"><span>P2</span> 键盘右侧</div>
+              <div class="key-row"><kbd>←</kbd><kbd>→</kbd><em>移动</em></div>
+              <div class="key-row"><kbd>↑</kbd><em>跳跃</em></div>
+              <div class="key-row"><kbd>↓</kbd><em>下蹲 · 替身格挡</em></div>
+              <div class="key-row"><kbd>1</kbd><em>轻攻击</em></div>
+              <div class="key-row"><kbd>2</kbd><em>重攻击 / 长按连打</em></div>
+              <div class="key-row"><kbd>3</kbd><em>二技能 · CD 8 秒</em></div>
+              <div class="key-row"><kbd>5</kbd><em>追击技 · 25 SP · CD 5 秒</em></div>
+              <div class="key-row"><kbd>4</kbd><em>超必杀 · 100 SP</em></div>
+              <div class="key-row"><kbd>右Shift</kbd><em>闪避 / 受击脱离</em></div>
+            </div>
+            <div class="help-col tips-col">
+              <div class="help-player"><span>TIPS</span> 战斗要诀</div>
+              <ul>
+                <li class="touch-only-tip"><b>触屏轮盘</b>左下轮盘左右拖动移动，上拉跳跃，下拉防御；右侧是攻击键，底部中间 <kbd>Ⅱ</kbd> 暂停。</li>
+                <li><b>直接朝向</b>按 <kbd>A</kbd> 立刻面向左侧，按 <kbd>D</kbd> 面向右侧；不按方向时自动面向对手。</li>
+                <li><b>贴身连段</b>轻攻击命中后立刻再按，可接重击。</li>
+                <li><b>防御反击</b>按住防御会吃少量削血；防御后立刻出招。</li>
+                <li><b>替身槽</b>开局 50 SP；J 命中 +5，短按 K 命中 +8，长按 K 每段 +1；H 消耗 25；L 需 80（乔鲁诺 40），U 需 100。被击/防御不增不减 SP。</li>
+                <li><b>技能冷却</b>H 冷却 5 秒、L 冷却 8 秒。成功发动后开始计时，冷却中按键会提示剩余秒数。东方定助 L 为 3 发泡沫弹，3 发后 4 秒冷却；进化后恢复 8 秒。</li>
+                <li><b>超必杀</b>槽满时按超必杀键，演出期间不可打断。</li>
+                <li><b>时间停止</b>承太郎 <kbd>U</kbd>、DIO <kbd>L</kbd> 会冻结对手；DIO 的 <kbd>U</kbd> 是压路机。</li>
+                <li><b>替身连打</b>长按 <kbd>K</kbd> / <kbd>2</kbd>，替身会在身前持续连打或连射；连打期间可用 <kbd>A</kbd>/<kbd>D</kbd> 控制前进后退，不再自动前冲。短按 K、J、挑空和空中攻击都会各触发一次短战吼。</li>
+                <li><b>闪避</b>按 <kbd>F</kbd>（P2 为右 <kbd>Shift</kbd>）快速位移并获得短暂无敌。</li>
+                <li><b>完美闪避</b>在对手攻击启动的瞬间按 <kbd>F</kbd>，获得 0.9 秒反击窗口，冷却 5 秒；窗口内按 <kbd>J</kbd> 免费发动 H，并追加一次替身追击。</li>
+                <li><b>受击脱离</b>被连段击中时按 <kbd>F</kbd>，消耗 25 能量脱离连段，自身获得 1 秒无敌并略微半透明，冷却 10 秒；脱身不会推开、打断或眩晕对手；U 演出期间不可脱离。普通闪避不耗能，也不触发这个冷却。</li>
+                <li><b>下蹲格挡</b>按住 <kbd>S</kbd> / <kbd>↓</kbd>，替身会站到本体前方格挡。</li>
+                <li><b>空中替身</b>跳跃中按 <kbd>J</kbd> 或 <kbd>K</kbd>，替身会向下发动不可防御的坠击。</li>
+                <li><b>进阶连携</b>下+重击挑空，冲刺中轻击突进，双击反方向后撤步；普通攻击或长按 K 连打中按 <kbd>Space</kbd> 可跳跃取消。</li>
+                <li><b>追击技</b>按 <kbd>H</kbd> / <kbd>5</kbd> 发动角色专属技能，冷却 5 秒；多数角色消耗 25 SP，透龙的短按 / 长按分别为 10 / 25 SP。</li>
+                <li><b>角色专属</b>承太郎 H 流星刺指（命中后追击一拳，跳跃可躲）；DIO H 时停绕后袭击；乔鲁诺短按 H 召唤青蛙、长按 H 生命之树；花京院 H 绿宝石飞溅。</li>
+                <li><b>透龙 / 奇迹与你</b>J 拐杖（判定距离较短，无战吼）；短 K 石头（不耗 SP，命中 +15 SP，5 秒内 5 次命中触发爆炸；射程 500px，命中僵直已下调；每 3 颗进入 5 秒冷却，冷却期间短 K 变为短距离拐击；石头和虫子贴地、直线移动不转向，跳跃可躲）/ 长按 K 前冲抓取（可抓防御、破防、短暂无敌）；H 灾厄姿态 / 长按追击之雨；L 枯木虫；U 灾厄领域（领域随机掉落物伤害降低，只做削血干扰）。奇迹与你造成的所有命中僵直与追击之雨冻结时间缩短为 0.8 倍。跳跃中 J 为拐杖破防攻击，K 为丢石头。正常 F 向后瞬移，受击脱身也向后瞬移、不再出现在对手身后，双击 A/D 左右瞬移。</li>
+                <li><b>东方定助 / 软又湿</b>H 发射「夺走之泡」，命中后随机夺走对手的力量、速度、防御或 SP，持续 8 秒（超越后 10 秒）；L 发射普通远程泡沫弹，3 发后 4 秒冷却；被命中 +2 特殊能量，普通 SP 获取的 50%（向下取整）也会转化过来，100 SP + 50 特殊能量时按 U 进化为「软又湿·超越」；进化后 L 变为 40 SP 高速超越泡泡，U 为 100 SP 穿透爆裂泡泡（夺取全属性 6 秒，并封印奇迹与你石头/虫子 6 秒）。进化后的所有攻击不会触发奇迹与你的灾厄反击或灾厄领域概率反击。</li>
+                <li><b>生命青蛙</b>青蛙会在场内徘徊；对手攻击到它时，乔鲁诺直接扣除对手当前最大生命值的 5%。青蛙直到消失都没被碰过，则返还 25 SP。</li>
+                <li><b>替身对拳</b>双方近距离同时长按 <kbd>K</kbd> / <kbd>2</kbd> 会进入 STAND CLASH。快速连按 K / 2，先到 50 次的一方获胜，对手直接损失 30% 最大生命值；长按 <kbd>F</kbd> / 右 <kbd>Shift</kbd> 0.75 秒可消耗 50 SP 脱离。</li>
+                <li><b>攻击判定</b>普通攻击的判定跟随替身拳头位置，从身体到拳头之间都有判定；被攻击的仍然是角色本体。J 轻击的判定远端约 920，比 K 重击更远，拳风也更长。普通攻击命中不会把对手横向推开，J → K 等轻 / 重衔接可以稳定连上。</li>
+                <li><b>局域网联机</b>标题菜单选择「局域网联机」。房主创建房间并把 4 位房间码告诉对方；对方加入后，双方各自选角，两人都选好后自动开始。联机双方都使用 P1 键位（WASD / Space / J/K/L/H/U/F），方向键和数字键也可用。</li>
+                <li><b>按键设置</b>标题页的「按键设置」可以改 P1 / P2 的全部按键，点击后按下新键即可，自动保存。手机端还可以在标题页点「触屏设置」直接拖动和缩放虚拟按键。</li>
+                <li><b>乔鲁诺觉醒</b>体力低于 25% 且 SP 满时按 <kbd>U</kbd> 前冲抓取；命中才进入镇魂曲，落空清空 SP。</li>
+              </ul>
+              <div class="help-note">单人模式可直接用方向键移动、<kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd><kbd>5</kbd> 出招；双人模式 P2 也支持小键盘。</div>
+            </div>
+          </div>
+
+          <footer class="help-footer">
+            <span>轻击起手 → 长按 K 替身连打 / 追击技收尾；用挑空和空中替身坠击打开防御。</span>
+            <button id="btn-help-back" class="primary-small" data-sfx="ui">知道了</button>
+          </footer>
+        </div>
+      </section>
+
+      <!-- 暂停 -->
+      <div id="pause-modal" class="modal hidden">
+        <div class="modal-card pause-card">
+          <div class="kicker">PAUSED</div>
+          <h2>替身，暂时收手。</h2>
+          <div class="pause-actions">
+            <button id="btn-resume" class="menu-btn primary" data-sfx="ui"><span class="btn-copy"><b>继续战斗</b><small>RESUME</small></span><span class="btn-arrow">→</span></button>
+            <button id="btn-restart" class="menu-btn" data-sfx="ui"><span class="btn-copy"><b>重新开始</b><small>RESTART MATCH</small></span><span class="btn-arrow">↻</span></button>
+            <button id="btn-quit" class="menu-btn" data-sfx="ui"><span class="btn-copy"><b>返回选人</b><small>CHARACTER SELECT</small></span><span class="btn-arrow">←</span></button>
+          </div>
+          <div class="pause-help">按 <kbd>Esc</kbd> 继续 · 按 <kbd>M</kbd> 静音</div>
+          <div class="pause-touch-tools">
+            <button id="btn-touch-layout" class="text-btn" type="button" data-sfx="ui">自定义按键</button>
+            <button id="btn-pause-mute" class="text-btn" type="button" data-sfx="ui">声音：开</button>
+            <button id="btn-pause-fullscreen" class="text-btn" type="button" data-sfx="ui">全屏</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 结算 -->
+      <section id="screen-result" class="screen result-screen hidden">
+        <div class="result-panel">
+          <div class="kicker">MATCH OVER</div>
+          <h2 id="result-title">WINNER</h2>
+          <div id="result-name" class="result-name">空条承太郎</div>
+          <div id="result-stand" class="result-stand">STAR PLATINUM</div>
+          <blockquote id="result-quote">“Yare yare daze…”</blockquote>
+          <div class="result-stats">
+            <div><span>MAX COMBO</span><b id="result-combo">6</b></div>
+            <div><span>TOTAL DAMAGE</span><b id="result-damage">1840</b></div>
+            <div><span>SP USED</span><b id="result-super">3</b></div>
+          </div>
+          <div class="result-actions">
+            <button id="btn-rematch" class="menu-btn primary" data-sfx="ui"><span class="btn-copy"><b>再战一场</b><small>REMATCH</small></span><span class="btn-arrow">↻</span></button>
+            <button id="btn-result-select" class="menu-btn" data-sfx="ui"><span class="btn-copy"><b>重新选人</b><small>CHARACTER SELECT</small></span><span class="btn-arrow">←</span></button>
+          </div>
+        </div>
+      </section>
+
+      <div id="flash" class="flash"></div>
+    </div>
+
+    <!-- Touch controls live outside the scaled stage so buttons keep a real,
+         finger-friendly size on every phone. -->
+    <div id="touch-controls" class="touch-controls hidden">
+      <div id="touch-stick" class="touch-stick" data-touch-key="stick" role="group" aria-label="虚拟轮盘：左右移动，上拉跳跃，下拉防御">
+        <span class="stick-hint up">跳</span>
+        <span class="stick-hint left">◀</span>
+        <span class="stick-hint right">▶</span>
+        <span class="stick-hint down">防</span>
+        <span id="touch-stick-knob" class="stick-knob"></span>
+      </div>
+      <div class="touch-utility">
+        <button id="btn-touch-layout-edit" class="touch-btn tool" type="button" aria-label="自定义按键位置">⚙</button>
+        <button id="btn-touch-pause" class="touch-btn tool" type="button" aria-label="暂停游戏">Ⅱ</button>
+      </div>
+      <div class="touch-attack">
+        <button data-touch="KeyJ" data-touch-key="light" class="touch-btn atk light" type="button" aria-label="轻攻击">轻</button>
+        <button data-touch="KeyK" data-touch-key="heavy" class="touch-btn atk heavy" type="button" aria-label="重攻击，长按连打">重</button>
+        <button data-touch="KeyL" data-touch-key="special" class="touch-btn atk special" type="button" aria-label="二技能">技</button>
+        <button data-touch="KeyH" data-touch-key="follow" class="touch-btn atk follow" type="button" aria-label="追击技">追</button>
+        <button data-touch="KeyF" data-touch-key="dodge" class="touch-btn atk dodge" type="button" aria-label="闪避">闪</button>
+        <button data-touch="KeyU" data-touch-key="super" class="touch-btn atk super" type="button" aria-label="超必杀">极</button>
+      </div>
+    </div>
+
+    <div id="touch-editor-bar" class="touch-editor-bar hidden" role="dialog" aria-label="自定义按键位置与大小">
+      <div class="touch-editor-main">
+        <div class="touch-editor-copy">
+          <b>自定义按键</b>
+          <span>点选按键后可拖动位置或调整大小</span>
+        </div>
+        <button id="btn-touch-layout-reset" type="button" data-sfx="ui">重置</button>
+        <button id="btn-touch-layout-done" type="button" data-sfx="ui">完成</button>
+      </div>
+      <div id="touch-editor-size" class="touch-editor-size hidden">
+        <span id="touch-size-name">轻攻击</span>
+        <button id="btn-touch-size-dec" type="button" aria-label="缩小按键">−</button>
+        <input id="touch-size-range" type="range" min="0.7" max="1.6" step="0.05" value="1" aria-label="按键大小">
+        <output id="touch-size-out">100%</output>
+        <button id="btn-touch-size-inc" type="button" aria-label="放大按键">+</button>
+      </div>
+    </div>
+
+    <div id="rotate-hint" class="rotate-hint">
+      <div class="rotate-icon">↻</div>
+      <b>请横屏游玩</b>
+      <span>STAND RUSH 需要更宽的战场。</span>
+    </div>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/art.js"></script>
+  <script src="js/game/core.js"></script>
+  <script src="js/game/fighter.js"></script>
+  <script src="js/game/match.js"></script>
+  <script src="js/game/supers.js"></script>
+  <script src="js/game/render.js"></script>
+  <script src="js/net.js"></script>
+  <script src="js/game/main.js"></script>
+</body>
+</html>
