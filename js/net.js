@@ -5,6 +5,11 @@
    the public static build uses the Cloudflare Durable Object relay from
    js/config.js. Both clients run the same deterministic match in lockstep:
    each input frame is only simulated after both players' inputs arrive.
+
+   Online play pre-sends input frames (onlineInputDelay) so a normal
+   internet round trip does not throttle the simulation. A temporary
+   socket drop freezes the match and retries the same room/role; the relay
+   keeps a short frame history so the reconnecting side can catch up.
    ========================================================= */
 (function () {
   'use strict';
@@ -19,6 +24,14 @@
     pDodge: false
   };
 
+  const RECONNECT_DELAYS = [500, 1000, 2000, 3000, 5000, 5000, 5000, 5000];
+
+  function median(values) {
+    if (!values.length) return null;
+    const sorted = [...values].sort((a, b) => a - b);
+    return sorted[Math.floor(sorted.length / 2)];
+  }
+
   const Net = {
     ws: null,
     room: '',
@@ -32,9 +45,23 @@
     sentFrame: -1,
     inputDelay: 0,
     frames: new Map(),
+    sentInputs: new Map(),
     listeners: {},
     manualClose: false,
     lastError: null,
+
+    // Online / reconnect state.
+    usingRemote: false,
+    endpoint: '',
+    resuming: false,
+    connectedOnce: false,
+    reconnectAttempt: 0,
+    reconnectTimer: null,
+    pingTimer: null,
+    rtt: null,
+    peerRtt: null,
+    rttSamples: [],
+    peerRttSamples: [],
 
     on(event, fn) {
       (this.listeners[event] || (this.listeners[event] = [])).push(fn);
@@ -78,6 +105,12 @@
       }
       if (role !== 'host' && role !== 'guest') return false;
 
+      const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
+      this.usingRemote = !localServer && Boolean(remoteWs);
+      this.endpoint = this.usingRemote
+        ? remoteWs
+        : `${scheme}://${location.host}/__ws`;
+
       this.close(true);
       this.room = code;
       this.role = role;
@@ -87,36 +120,60 @@
       this.remoteChoice = null;
       this.seed = 0;
       this.lastError = null;
+      this.connectedOnce = false;
+      this.resuming = false;
+      this.reconnectAttempt = 0;
+      this.rtt = null;
+      this.peerRtt = null;
+      this.rttSamples = [];
+      this.peerRttSamples = [];
       this.resetFrames();
       this.manualClose = false;
 
-      const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
-      const endpoint = (!localServer && remoteWs)
-        ? remoteWs
-        : `${scheme}://${location.host}/__ws`;
       let url;
       try {
-        const target = new URL(endpoint, location.href);
-        if (target.protocol === 'http:') target.protocol = 'ws:';
-        if (target.protocol === 'https:') target.protocol = 'wss:';
-        target.searchParams.set('room', code);
-        target.searchParams.set('role', role);
-        url = target.toString();
+        url = this.buildUrl();
       } catch (err) {
         this.emit('error', '联机服务地址配置无效');
         return false;
       }
+      this.openSocket(url, false);
+      return true;
+    },
+
+    buildUrl() {
+      const target = new URL(this.endpoint, location.href);
+      if (target.protocol === 'http:') target.protocol = 'ws:';
+      if (target.protocol === 'https:') target.protocol = 'wss:';
+      target.searchParams.set('room', this.room);
+      target.searchParams.set('role', this.role);
+      return target.toString();
+    },
+
+    openSocket(url, resuming) {
       let ws;
       try {
         ws = new WebSocket(url);
       } catch (err) {
-        this.emit('error', '无法连接联机服务');
-        return false;
+        if (resuming) this.scheduleReconnect();
+        else this.emit('error', '无法连接联机服务');
+        return;
       }
       this.ws = ws;
+      this.resuming = resuming;
 
       ws.onopen = () => {
-        if (this.ws === ws) this.emit('open');
+        if (this.ws !== ws) return;
+        if (this.usingRemote) this.startPing();
+        if (resuming) {
+          // Ask the relay to replay paired frames from our last simulated
+          // frame, then resend any future inputs that were in flight.
+          this.send({ type: 'resume', frame: this.nextFrame });
+          this.resendPendingInputs();
+          this.emit('reconnected-open');
+        } else {
+          this.emit('open');
+        }
       };
       ws.onmessage = (ev) => {
         if (this.ws !== ws) return;
@@ -125,23 +182,95 @@
         if (msg && typeof msg === 'object') this.handleMessage(msg);
       };
       ws.onerror = () => {
-        if (this.ws === ws) this.emit('error', '联机连接失败');
+        if (this.ws === ws && !resuming && !this.connectedOnce) {
+          this.emit('error', '联机连接失败');
+        }
       };
       ws.onclose = () => {
         if (this.ws !== ws) return;
         this.ws = null;
+        this.stopPing();
         this.peerConnected = false;
-        if (!this.manualClose) this.emit('close');
+        if (this.manualClose) return;
+        if (this.usingRemote && this.connectedOnce && this.room && this.role) {
+          this.scheduleReconnect();
+        } else {
+          this.emit('close');
+        }
       };
-      return true;
+    },
+
+    scheduleReconnect() {
+      if (this.reconnectTimer || this.manualClose) return;
+      if (!this.usingRemote) {
+        this.emit('close');
+        return;
+      }
+      if (this.reconnectAttempt >= RECONNECT_DELAYS.length) {
+        this.emit('close');
+        return;
+      }
+      const delay = RECONNECT_DELAYS[this.reconnectAttempt++];
+      this.emit('reconnecting', { attempt: this.reconnectAttempt, delay });
+      this.reconnectTimer = setTimeout(() => {
+        this.reconnectTimer = null;
+        if (this.manualClose) return;
+        let url;
+        try {
+          url = this.buildUrl();
+        } catch (err) {
+          this.scheduleReconnect();
+          return;
+        }
+        this.openSocket(url, true);
+      }, delay);
+    },
+
+    retryNow() {
+      if (!this.usingRemote || this.manualClose) return;
+      if (this.reconnectTimer) {
+        clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = null;
+        this.openSocket(this.buildUrl(), true);
+      } else if (!this.ws && this.connectedOnce) {
+        this.openSocket(this.buildUrl(), true);
+      }
+    },
+
+    startPing() {
+      if (!this.usingRemote) return;
+      this.stopPing();
+      const ping = () => {
+        if (!this.ws || this.ws.readyState !== 1) return;
+        this.send({ type: 'ping', t: performance.now() });
+        if (this.rtt != null) this.send({ type: 'latency', rtt: this.rtt });
+      };
+      ping();
+      this.pingTimer = setInterval(ping, 2000);
+    },
+
+    stopPing() {
+      if (this.pingTimer) {
+        clearInterval(this.pingTimer);
+        this.pingTimer = null;
+      }
+    },
+
+    clearReconnect() {
+      if (this.reconnectTimer) {
+        clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = null;
+      }
     },
 
     host(code) { return this.connect(code || this.newCode(), 'host'); },
     join(code) { return this.connect(code, 'guest'); },
 
     close(silent) {
+      this.manualClose = true;
+      this.clearReconnect();
+      this.stopPing();
       if (this.ws) {
-        this.manualClose = true;
         try {
           if (!silent && this.ws.readyState === 1) {
             this.ws.send(JSON.stringify({ type: 'leave' }));
@@ -153,6 +282,9 @@
       this.peerConnected = false;
       this.localChoice = null;
       this.remoteChoice = null;
+      this.resuming = false;
+      this.connectedOnce = false;
+      this.reconnectAttempt = 0;
       this.resetFrames();
     },
 
@@ -169,26 +301,63 @@
       return sent;
     },
 
-    start(p1, p2, seed) {
-      this.seed = seed >>> 0;
-      return this.send({ type: 'start', p1, p2, seed: this.seed });
+    setInputDelay(value) {
+      const n = Number(value);
+      if (Number.isFinite(n)) {
+        this.inputDelay = Math.max(0, Math.min(30, Math.round(n)));
+      }
+      return this.inputDelay;
     },
 
-    rematch(p1, p2, seed) {
+    recommendedDelay() {
+      if (!this.usingRemote) return 0;
+      const rtt = Math.max(this.rtt || 0, this.peerRtt || 0);
+      if (!rtt) return this.inputDelay || 12;
+      // One frame is 16.67 ms. Three extra frames cover jitter.
+      return Math.max(6, Math.min(24, Math.ceil(rtt / (1000 / 60)) + 3));
+    },
+
+    latencyInfo() {
+      return {
+        rtt: this.rtt,
+        peerRtt: this.peerRtt,
+        delay: this.inputDelay,
+        remote: this.usingRemote
+      };
+    },
+
+    start(p1, p2, seed, delay) {
+      this.setInputDelay(delay == null ? this.recommendedDelay() : delay);
       this.seed = seed >>> 0;
-      return this.send({ type: 'rematch', p1, p2, seed: this.seed });
+      return this.send({
+        type: 'start', p1, p2, seed: this.seed, delay: this.inputDelay
+      });
+    },
+
+    rematch(p1, p2, seed, delay) {
+      this.setInputDelay(delay == null ? this.recommendedDelay() : delay);
+      this.seed = seed >>> 0;
+      return this.send({
+        type: 'rematch', p1, p2, seed: this.seed, delay: this.inputDelay
+      });
     },
 
     resetFrames() {
       this.nextFrame = 0;
       this.sentFrame = -1;
       this.frames = new Map();
+      this.sentInputs = new Map();
     },
 
     sendInputAt(frame, input) {
       if (!this.ws || this.ws.readyState !== 1) return null;
       this.send({ type: 'input', frame, input });
       this.sentFrame = frame;
+      this.sentInputs.set(frame, input);
+      const cutoff = this.nextFrame - 120;
+      for (const key of this.sentInputs.keys()) {
+        if (key < cutoff) this.sentInputs.delete(key);
+      }
       return input;
     },
 
@@ -222,16 +391,38 @@
       return sent;
     },
 
+    resendPendingInputs() {
+      for (const [frame, input] of this.sentInputs) {
+        if (frame >= this.nextFrame) {
+          this.send({ type: 'input', frame, input });
+        }
+      }
+    },
+
     handleMessage(msg) {
       switch (msg.type) {
-        case 'ready':
+        case 'ready': {
+          const wasResuming = this.resuming;
+          this.resuming = false;
+          this.connectedOnce = true;
+          this.reconnectAttempt = 0;
+          this.clearReconnect();
           this.role = msg.role === 'guest' ? 'guest' : 'host';
           this.room = msg.room || this.room;
           this.localIndex = this.role === 'host' ? 0 : 1;
           this.peerConnected = !!msg.peer;
           this.lastError = null;
-          this.emit('ready', msg);
+          if (wasResuming && !msg.resumed) {
+            this.connectedOnce = false;
+            this.emit('resync-required', { reason: 'room-reset' });
+            this.close(true);
+            break;
+          }
+          if (wasResuming) this.emit('reconnected', msg);
+          else this.emit('ready', msg);
+          this.emit('latency', this.latencyInfo());
           break;
+        }
         case 'peer':
           this.peerConnected = !!msg.connected;
           this.emit('peer', msg);
@@ -240,17 +431,48 @@
           this.remoteChoice = msg.char || null;
           this.emit('peer-choice', msg);
           break;
+        case 'peer-latency': {
+          const rtt = Number(msg.rtt);
+          if (Number.isFinite(rtt)) {
+            this.peerRttSamples.push(Math.max(0, Math.min(10000, rtt)));
+            if (this.peerRttSamples.length > 5) this.peerRttSamples.shift();
+            this.peerRtt = median(this.peerRttSamples);
+            this.emit('latency', this.latencyInfo());
+          }
+          break;
+        }
         case 'start':
         case 'rematch':
+          if (msg.delay != null) this.setInputDelay(msg.delay);
           this.seed = (msg.seed || 0) >>> 0;
           this.resetFrames();
           this.emit(msg.type, msg);
+          this.emit('latency', this.latencyInfo());
           break;
         case 'frame':
-          if (typeof msg.frame === 'number' && Array.isArray(msg.inputs)) {
+          if (typeof msg.frame === 'number' &&
+              msg.frame >= this.nextFrame &&
+              Array.isArray(msg.inputs)) {
             this.frames.set(msg.frame, msg.inputs);
             this.emit('frame', msg);
           }
+          break;
+        case 'pong': {
+          const sent = Number(msg.t);
+          if (Number.isFinite(sent)) {
+            const sample = performance.now() - sent;
+            if (sample >= 0 && sample < 10000) {
+              this.rttSamples.push(sample);
+              if (this.rttSamples.length > 5) this.rttSamples.shift();
+              this.rtt = median(this.rttSamples);
+              this.send({ type: 'latency', rtt: this.rtt });
+              this.emit('latency', this.latencyInfo());
+            }
+          }
+          break;
+        }
+        case 'resync-required':
+          this.emit('resync-required', msg);
           break;
         case 'peer-left':
           this.peerConnected = false;

@@ -16,6 +16,29 @@
 
   let keyBindTarget = null;
 
+  function updateNetStats() {
+    const pingEl = $('net-ping');
+    const delayEl = $('net-delay');
+    const hudEl = $('net-latency');
+    const remote = Boolean(Net.usingRemote);
+    const rtt = Net.rtt == null ? null : Math.round(Net.rtt);
+    const delay = remote ? Net.inputDelay : 0;
+    const pingText = remote
+      ? (rtt == null ? '测量中…' : `${rtt} ms`)
+      : '本地';
+
+    if (pingEl) pingEl.textContent = pingText;
+    if (delayEl) delayEl.textContent = String(delay);
+    if (hudEl) {
+      hudEl.textContent = remote
+        ? (rtt == null ? `测量中… · ${delay} 帧` : `${rtt} ms · ${delay} 帧`)
+        : `LAN · ${delay} 帧`;
+      hudEl.classList.toggle('hidden', App.mode !== 'net' || App.screen !== 'fight');
+      hudEl.classList.toggle('warn', remote && rtt != null && rtt > 120);
+      hudEl.classList.toggle('bad', remote && rtt != null && rtt > 220);
+    }
+  }
+
   /* =========================================================
      Key settings
      ========================================================= */
@@ -722,10 +745,12 @@
         return;
       }
       const seed = (Math.random() * 0x7FFFFFFF) | 0;
-      Net.rematch(p1, p2, seed);
+      const delay = Net.recommendedDelay();
+      Net.rematch(p1, p2, seed, delay);
       Net.resetFrames();
       dom.result.classList.add('hidden');
       startNetMatch(p1, p2, seed);
+      updateNetStats();
       return;
     }
     dom.result.classList.add('hidden');
@@ -823,15 +848,17 @@
     $('btn-1p').addEventListener('click', () => { Audio.unlock(); showSelect('1p'); });
     $('btn-2p').addEventListener('click', () => { Audio.unlock(); showSelect('2p'); });
     $('btn-training').addEventListener('click', () => { Audio.unlock(); showSelect('training'); });
-    $('btn-net').addEventListener('click', () => { Audio.unlock(); showNet(); });
+    $('btn-net').addEventListener('click', () => { Audio.unlock(); showNet(); updateNetStats(); });
 
     function maybeStartNet() {
       if (!Net.isHost() || App.screen !== 'select') return;
       if (!App.selected[0] || !App.selected[1]) return;
       const seed = (Math.random() * 0x7FFFFFFF) | 0;
-      Net.start(App.selected[0], App.selected[1], seed);
+      const delay = Net.recommendedDelay();
+      Net.start(App.selected[0], App.selected[1], seed, delay);
       Net.resetFrames();
       startNetMatch(App.selected[0], App.selected[1], seed);
+      updateNetStats();
     }
 
     const joinNet = () => {
@@ -872,6 +899,7 @@
 
     Net.on('open', () => {
       if (App.screen === 'net') setNetStatus('已连接，等待对手…');
+      updateNetStats();
     });
     Net.on('ready', (msg) => {
       App.netRole = msg.role;
@@ -887,6 +915,22 @@
         App.selectStep = App.netLocalIndex;
         updateSelectUI();
       }
+      updateNetStats();
+    });
+    Net.on('reconnected', (msg) => {
+      App.netRole = msg.role;
+      App.netLocalIndex = Net.localIndex;
+      App.netRemoteChoice = Net.remoteChoice;
+      showNetRoom(msg.room);
+      toast(msg.peer ? '已重新连接' : '已重新连接，等待对手…', 2);
+      if (App.screen === 'select') updateSelectUI();
+      updateNetStats();
+    });
+    Net.on('reconnecting', (info) => {
+      toast(`连接中断，正在重连（${info.attempt}）…`, 4);
+      if (App.screen === 'net' || App.screen === 'select') {
+        setNetStatus('连接中断，正在重连…', true);
+      }
     });
     Net.on('peer', (msg) => {
       if (msg.connected) {
@@ -895,11 +939,17 @@
           App.selected[1 - (App.netLocalIndex || 0)] = null;
           updateSelectUI();
         }
-        toast('对手已加入');
+        toast(App.screen === 'fight' ? '对手已重新连接' : '对手已加入');
         if (App.screen === 'net') showSelect('net');
+      } else if (msg.reconnect) {
+        toast('对手连接中断，等待重连…', 5);
+        if (App.screen === 'net' || App.screen === 'select') {
+          setNetStatus('对手连接中断，等待重连…', true);
+        }
       } else {
         setNetStatus('对手已离开', true);
       }
+      updateNetStats();
     });
     Net.on('choice', () => maybeStartNet());
     Net.on('peer-choice', (msg) => {
@@ -911,10 +961,20 @@
     Net.on('start', (msg) => {
       App.netLocalIndex = Net.localIndex;
       startNetMatch(msg.p1, msg.p2, msg.seed);
+      updateNetStats();
     });
     Net.on('rematch', (msg) => {
       App.netLocalIndex = Net.localIndex;
       startNetMatch(msg.p1, msg.p2, msg.seed);
+      updateNetStats();
+    });
+    Net.on('latency', updateNetStats);
+    Net.on('resync-required', () => {
+      toast('掉线时间过长，无法恢复，请重新建房', 4);
+      Net.close();
+      App.game = null;
+      showNet();
+      setTimeout(() => setNetStatus('掉线时间过长，无法恢复，请重新建房', true), 100);
     });
     Net.on('error', (msg) => {
       showNetRoom(null);
@@ -923,9 +983,11 @@
     });
     Net.on('close', () => {
       if (Net.lastError) return;
-      if (App.screen === 'net' || App.screen === 'select') {
-        setNetStatus('联机连接已断开', true);
+      if (App.screen === 'fight' || App.screen === 'result') {
+        App.game = null;
+        showNet();
       }
+      setNetStatus('联机连接已断开', true);
     });
     Net.on('peer-left', () => {
       toast('对手已离开');
@@ -1078,10 +1140,17 @@
         acc = 0;
         Audio.resume();
         sendHeartbeat();
+        if (Net.usingRemote) Net.retryNow();
       }
     });
+    window.addEventListener('online', () => {
+      if (Net.usingRemote) Net.retryNow();
+    });
+    window.addEventListener('offline', () => {
+      if (Net.usingRemote) toast('网络已断开，等待恢复…', 3);
+    });
     window.addEventListener('pagehide', () => {
-      Net.close(true);
+      Net.close();
       Audio.suspend();
       sendBye();
     });

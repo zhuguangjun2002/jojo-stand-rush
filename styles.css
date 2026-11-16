@@ -1069,6 +1069,16 @@ body.touch .keys-columns { grid-template-columns: 1fr; gap: 18px; }
   font: 700 7px/1 var(--sans);
   letter-spacing: .22em;
 }
+.net-latency {
+  margin-top: 4px;
+  color: var(--cyan);
+  font: 700 8px/1.2 var(--sans);
+  letter-spacing: .06em;
+  opacity: .8;
+  text-shadow: 0 2px 3px rgba(0,0,0,.7);
+}
+.net-latency.warn { color: var(--gold); opacity: .95; }
+.net-latency.bad { color: var(--hot); opacity: 1; }
 
 /* combo */
 .combo {

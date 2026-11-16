@@ -59,6 +59,7 @@
           <div id="round-label" class="round-label">ROUND 1</div>
           <div id="timer" class="timer">99</div>
           <div id="timer-rule" class="timer-rule">FIRST TO 2</div>
+          <div id="net-latency" class="net-latency hidden">-- ms</div>
         </div>
 
         <div class="hud-side p2">
@@ -236,6 +237,7 @@
           <h2>联机对战</h2>
           <p id="net-lead" class="net-lead">在线联机：房主创建房间后，把 4 位房间码告诉对方。两台设备可以在不同网络，通过 Cloudflare 中继连接。</p>
           <div class="net-address">当前地址：<b id="net-address">—</b></div>
+          <div class="net-address">连接延迟：<b id="net-ping">--</b> · 输入延迟：<b id="net-delay">--</b> 帧</div>
           <div id="net-actions" class="net-actions hidden">
             <button id="btn-net-host" class="net-btn primary" type="button">
               <b>创建房间</b><small>HOST</small>
