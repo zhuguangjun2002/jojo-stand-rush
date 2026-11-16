@@ -11,6 +11,14 @@
   const JG = window.JG;
   const G = JG.Game;
 
+  // Must match the object returned by Game.humanInput(0).
+  const NEUTRAL_INPUT = {
+    left: false, right: false, down: false, heavy: false, second: false,
+    dodge: false, pUp: false, pLeft: false, pRight: false, pLight: false,
+    pHeavy: false, pSpecial: false, pSecond: false, pSuper: false,
+    pDodge: false
+  };
+
   const Net = {
     ws: null,
     room: '',
@@ -22,6 +30,7 @@
     seed: 0,
     nextFrame: 0,
     sentFrame: -1,
+    inputDelay: 0,
     frames: new Map(),
     listeners: {},
     manualClose: false,
@@ -58,6 +67,10 @@
         this.emit('error', '当前页面没有可用的联机服务；请刷新页面或在本机运行 ./run.sh');
         return false;
       }
+      const configuredDelay = Number(window.JG_CONFIG && window.JG_CONFIG.onlineInputDelay);
+      this.inputDelay = localServer
+        ? 0
+        : Math.max(0, Math.min(30, Number.isFinite(configuredDelay) ? Math.round(configuredDelay) : 12));
       const code = String(room || '').trim().toUpperCase();
       if (!/^[A-Z0-9]{4,8}$/.test(code)) {
         this.emit('error', '房间码需要 4-8 位字母或数字');
@@ -172,17 +185,41 @@
       this.frames = new Map();
     },
 
-    sendInput(frame) {
+    sendInputAt(frame, input) {
       if (!this.ws || this.ws.readyState !== 1) return null;
-      // Each machine controls its own fighter, so both always sample the
-      // local P1 layout instead of making the guest use P2's number keys.
-      const input = G.humanInput(0);
       this.send({ type: 'input', frame, input });
       this.sentFrame = frame;
+      return input;
+    },
+
+    // Seed the delay pipeline with neutral frames. Without this the first
+    // real input would still have to make a full network round trip before
+    // frame 0 can be simulated.
+    primeInputs() {
+      if (this.inputDelay <= 0 || this.sentFrame >= 0) return;
+      for (let frame = 0; frame < this.inputDelay; frame++) {
+        if (!this.sendInputAt(frame, NEUTRAL_INPUT)) return;
+      }
+    },
+
+    sendNextInput() {
+      const target = this.nextFrame + this.inputDelay;
+      if (this.sentFrame >= target) return null;
+      const input = G.humanInput(0);
+      const sent = this.sendInputAt(target, input);
       // The input was captured for exactly one simulation frame; later presses
       // must belong to the next frame, not this buffered one.
       G.Input.pressed.clear();
-      return input;
+      return sent;
+    },
+
+    sendInput(frame) {
+      // Each machine controls its own fighter, so both always sample the
+      // local P1 layout instead of making the guest use P2's number keys.
+      const input = G.humanInput(0);
+      const sent = this.sendInputAt(frame, input);
+      G.Input.pressed.clear();
+      return sent;
     },
 
     handleMessage(msg) {

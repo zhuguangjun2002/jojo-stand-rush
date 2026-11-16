@@ -190,7 +190,7 @@ cd ~/webgame-test && npx playwright test
 - 终结图 `josuke.jpg` 是用户提供的参考图，仅用于非商业同人演示；公开部署前请确认素材授权。
 - 在线联机依赖 Cloudflare Worker + Durable Object（`jojo-stand-rush-ws` / `ws.jojo.bigcow.net`）；`server.py` 只负责本地局域网，不会在 Pages 上运行。
 - `js/game/core.js` 的 `Server.probe()` 会探测 `/__net/info`：本地服务器优先走同源 `/__ws`，静态页面回退到 `js/config.js` 的在线中继，并停止无用的 `/__heartbeat` 请求。
-- 当前在线联机是锁步中继，没有输入延迟缓冲、掉线重连或延迟显示；公网高延迟时双方都会等待，网络抖动会直接卡住。房间码为 4 位，公开推广前建议改成 6 位并加限流。
+- 当前在线联机是锁步中继，默认用 **12 帧输入延迟**（`js/config.js` 的 `onlineInputDelay`）预发送输入，避免公网 RTT 直接限制模拟帧率；局域网模式使用 0 帧延迟。还没有掉线重连、动态延迟调整或延迟显示，网络抖动仍会卡住。房间码为 4 位，公开推广前建议改成 6 位并加限流。
 - 线上版地址 <https://jojo.bigcow.net/>，构建时不复制 `server.py`、`worker/`、`.bat`、文档和 Git 元数据；Worker 由独立步骤发布。
 
 ## 10. 交接检查清单

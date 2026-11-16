@@ -1110,6 +1110,8 @@
 
   function stepNetMatch() {
     if (!App.game || !Net.ws) return;
+    Net.primeInputs();
+    Net.sendNextInput();
     let steps = 0;
     while (steps < 4 && App.screen === 'fight') {
       const frame = Net.nextFrame;
@@ -1118,10 +1120,9 @@
       Net.frames.delete(frame);
       App.game.update(STEP, inputs);
       Net.nextFrame += 1;
+      // Keep the pipeline ahead of the simulation by inputDelay frames.
+      Net.sendNextInput();
       steps += 1;
-    }
-    if (App.screen === 'fight' && Net.sentFrame < Net.nextFrame) {
-      Net.sendInput(Net.nextFrame);
     }
   }
 

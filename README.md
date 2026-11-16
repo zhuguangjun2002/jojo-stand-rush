@@ -67,6 +67,8 @@ HOST=0.0.0.0 ./run.sh    # 允许同一局域网内的其他设备访问
 
 在线中继只转发房间控制消息和输入帧，战斗逻辑仍在两台浏览器本地运行。房间码要等房间创建成功后再复制；如果连接失败，刷新页面重试即可。
 
+在线模式默认使用 **12 帧输入延迟**（约 200ms）来抵消网络往返，避免锁步等待导致双方掉帧。网络很好时可以调低 `js/config.js` 里的 `onlineInputDelay`；延迟高时可以调到 15–20 帧。
+
 ### 局域网联机
 
 两台设备连接同一局域网即可，不需要互联网或额外账号。
@@ -430,7 +432,7 @@ HANDOVER.md         交接文档：当前机制、平衡、测试、已知限制
 - 新增 `HANDOVER.md`，记录当前机制、平衡、测试命令、已知限制与后续建议。
 - 项目迁移到 Linux Mint；清理 `.bat` 里写死的本机 Python 路径，移除不可移植的 Windows `.lnk` 快捷方式。
 - 新增 Cloudflare Pages 部署：<https://jojo.bigcow.net/>，GitHub Actions 在 `main` 更新后自动发布；静态部署会停止无用的心跳请求。
-- 新增在线联机：Cloudflare Worker + Durable Objects 中继房间与输入帧，`ws.jojo.bigcow.net` 为专用 WebSocket 域名；本地 `./run.sh` 仍优先使用同源局域网中继。
+- 新增在线联机：Cloudflare Worker + Durable Objects 中继房间与输入帧，`ws.jojo.bigcow.net` 为专用 WebSocket 域名；本地 `./run.sh` 仍优先使用同源局域网中继。在线模式默认 12 帧输入延迟，避免公网 RTT 把锁步模拟拖慢到个位数帧率。
 
 ### 2026-11-12
 
