@@ -39,7 +39,13 @@
         return this._probe;
       }
       this._probe = fetch('/__net/info', { cache: 'no-store' })
-        .then((res) => (res.ok ? res.json() : null))
+        // Static hosts often rewrite unknown paths to index.html with a 200.
+        // Only a JSON response proves that server.py is actually running.
+        .then((res) => {
+          const type = res.headers.get('content-type') || '';
+          if (!res.ok || !type.includes('application/json')) return null;
+          return res.json();
+        })
         .then((info) => {
           if (!info || typeof info.port !== 'number') {
             this.online = false;
