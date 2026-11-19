@@ -49,6 +49,7 @@
       this.miniTimeStop = null;
       this.finisher = null;
       this.projectiles = [];
+      this.resetTuskWorld();
       this.traps = [];
       this.frogs = [];
       this.wouStones = [];
@@ -103,6 +104,7 @@
       this.outroTime = 0;
       this.outroWinner = -1;
       this.projectiles = [];
+      this.resetTuskWorld();
       this.traps = [];
       this.frogs = [];
       this.wouStones = [];
@@ -121,6 +123,7 @@
       this.p2.resetRound(this.training ? 980 : 1200, -1);
       this.p1.state = 'intro';
       this.p2.state = 'intro';
+      for (const f of this.fighters) if (f.charId === 'johnny') f.resetJohnnyRound(this);
       if (this.training) {
         announce('TRAINING', '训练场 · 无限 HP / SP', 0.92);
       } else {
@@ -223,6 +226,9 @@
 
       if (this.phase !== 'fight') return;
 
+      this.updateTuskTimeless(dt, netInputs);
+      if (this.phase !== 'fight') return;
+
       if (this.training) {
         this.p1.hp = this.p1.maxHp;
         this.p1.meter = 100;
@@ -267,6 +273,7 @@
       if (this.clash || this.checkClash()) return;
       this.animFighters(dt);
       this.updateEffects(dt);
+      this.updateTuskWorld(dt);
       this.updateProjectiles(dt);
       this.updateTraps(dt);
       this.updateFrogs(dt);
@@ -345,8 +352,8 @@
     }
 
     resolveHit(attacker, defender, move, opts) {
-      if (this.phase !== 'fight' || this.super) return false;
-      if (defender.hp <= 0) return false;
+      if (this.phase !== 'fight' || (this.super && !this.isTuskTimeFree(attacker))) return false;
+      if (defender.hp <= 0 || defender.tuskHidden) return false;
       if (defender.invuln > 0) return false;
       // Go Beyond was literally created to bypass Wonder of U's causality.
       // Its attacks do not wake the calamity stance or the domain counter.
@@ -445,6 +452,12 @@
       if (move.lift) {
         defender.vy = move.lift / defender.data.weight;
         defender.onGround = false;
+      }
+      if (defender.charId === 'johnny' && defender.corpseUnlocked && !defender.mounted) {
+        defender.hitstun = defender.blockstun = 0;
+        defender.vx = defender.vy = 0;
+        defender.y = GROUND;
+        defender.onGround = true;
       }
       attacker.damageDealt += dmg;
       // Energy rules: J +5, short K +8, held-K barrage +1, H is handled once on cast,
@@ -773,6 +786,7 @@
     }
 
     checkClash(i1, i2) {
+      if (this.fighters.some(f => f.charId === 'johnny')) return false;
       if (this.clash || this.phase !== 'fight' || this.super) return false;
       const dist = Math.abs(this.p1.x - this.p2.x);
       if (Math.abs(this.p1.y - this.p2.y) > 130) return false;
@@ -1048,7 +1062,7 @@
     }
 
     stoneExplosion(owner, target) {
-      if (!owner || !target || target.hp <= 0) return;
+      if (!owner || !target || target.hp <= 0 || target.tuskHidden) return;
       const dmg = 120;
       target.hp = Math.max(0, target.hp - dmg);
       target.gainSpecialOnHit();
@@ -1177,7 +1191,7 @@
     }
 
     applyBubbleSteal(owner, target, goBeyond) {
-      if (!owner || !target || target.hp <= 0) return;
+      if (!owner || !target || target.hp <= 0 || target.tuskHidden) return;
       const roll = this.rand();
       let kind = 'sp';
       if (roll < 0.26) kind = 'power';
@@ -1207,7 +1221,7 @@
     }
 
     applyGoBeyondSteal(owner, target) {
-      if (!owner || !target || target.hp <= 0) return;
+      if (!owner || !target || target.hp <= 0 || target.tuskHidden) return;
       // The ultimate is not a single random theft: it takes every stealable
       // stat at once for six seconds, plus a chunk of SP.
       owner.attrBuff = 'all';
@@ -1254,7 +1268,7 @@
     }
 
     wouCounter(defender, attacker, kind, fromDomain) {
-      if (!attacker || attacker.hp <= 0) return false;
+      if (!attacker || attacker.hp <= 0 || attacker.tuskHidden) return false;
       defender.calamityGuard = 0;
       // The domain's random falling objects are chip pressure, not a full
       // free combo starter: less damage and no hitstun.
@@ -1291,6 +1305,7 @@
     beginWouRain(owner, sp) {
       if (this.wouRain || !owner) return false;
       const target = owner.index === 0 ? this.p2 : this.p1;
+      if (target.tuskHidden) return false;
       const rainDuration = (sp.duration || 3) * TOORU_STUN_SCALE;
       owner.specialAction = null;
       owner.state = 'special';
@@ -1386,6 +1401,7 @@
     }
 
     beginSuper(f, data, cost) {
+      if (this.fighters[1 - f.index].tuskHidden) return false;
       if (this.phase !== 'fight' || this.super || f.meter < cost) return false;
       if (f.hitstun > 0 || f.blockstun > 0 || f.specialAction || !f.onGround) return false;
       f.meter = Math.max(0, f.meter - cost);
@@ -1397,21 +1413,24 @@
       f.superTime = 0;
       f.standAlpha = 1;
       const opp = f.index === 0 ? this.p2 : this.p1;
-      // Cinematic staging: attacker on the left, victim on the right, both grounded.
-      f.x = 512;
-      f.y = GROUND;
-      f.facing = 1;
-      opp.x = 768;
-      opp.y = GROUND;
-      opp.facing = -1;
-      opp.frozen = false;
-      opp.vx = 0;
-      opp.vy = 0;
-      opp.onGround = true;
-      opp.attack = null;
-      opp.specialAction = null;
-      opp.state = 'frozen';
-      opp.frozen = true;
+      // Cinematic staging leaves ACT4 outside stopped time.
+      const tuskTimeFree = data.type === 'timestop' && opp.charId === 'johnny' && opp.tuskAct === 4;
+      if (!tuskTimeFree) {
+        f.x = 512;
+        f.y = GROUND;
+        f.facing = 1;
+        opp.x = 768;
+        opp.y = GROUND;
+        opp.facing = -1;
+        opp.frozen = false;
+        opp.vx = 0;
+        opp.vy = 0;
+        opp.onGround = true;
+        opp.attack = null;
+        opp.specialAction = null;
+        opp.state = 'frozen';
+        opp.frozen = true;
+      }
       const hits = data.hits;
       const interval = (data.duration - 1.15) / Math.max(1, hits);
       const hitTimes = [];
@@ -1445,6 +1464,7 @@
     }
 
     startTruth(f, opts) {
+      if (this.fighters[1 - f.index].tuskHidden) return false;
       const fromGrab = !!(opts && opts.fromGrab);
       if (this.phase !== 'fight' || this.super || (!fromGrab && f.meter < 100)) return false;
       const opp = f.index === 0 ? this.p2 : this.p1;
@@ -1508,8 +1528,10 @@
       s.time += dt;
       s.owner.superTime = s.time;
       s.owner.state = 'super';
-      s.opp.state = 'frozen';
-      s.opp.frozen = true;
+      if (!this.isTuskTimeFree(s.opp)) {
+        s.opp.state = 'frozen';
+        s.opp.frozen = true;
+      }
 
       if (s.type === 'gobeyondshot') {
         this.updateGoBeyondShot(dt, s);
@@ -1651,6 +1673,7 @@
     applySuperHit(s) {
       const dmg = s.data.damage;
       s.hitCount += 1;
+      if (this.isTuskTimeFree(s.opp)) return;
       s.opp.hp = Math.max(0, s.opp.hp - dmg);
       s.opp.hitFlash = 0.1;
       s.opp.comboTimer = 2;
@@ -1691,6 +1714,7 @@
     }
 
     applySuperFinisher(s) {
+      if (this.isTuskTimeFree(s.opp)) return;
       const dmg = s.data.finalDamage;
       s.opp.hp = Math.max(0, s.opp.hp - dmg);
       s.owner.damageDealt += dmg;
@@ -1745,6 +1769,7 @@
       this.miniTimeStop = null;
       this.finisher = null;
       this.projectiles = [];
+      this.resetTuskWorld();
       this.traps = [];
       this.frogs = [];
       this.wouStones = [];
@@ -1769,6 +1794,7 @@
       for (const f of this.fighters) {
         // Requiem normally persists between rounds; in training R is a full reset.
         f.requiem = false;
+        if (f.charId === 'johnny') { f.tuskAct = 1; f.corpseUnlocked = false; f.resetJohnnyRound(this); }
         f.palette = JG.clonePalette(f.charId, f.variant);
       }
       this.p1.state = 'idle';
@@ -2050,6 +2076,7 @@
       }
 
       // traps and summons under fighters
+      this.drawTuskWorld(ctx, t);
       this.drawTraps(ctx, t);
       this.drawFrogs(ctx, t);
       this.drawWouStones(ctx, t);

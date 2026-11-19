@@ -1,6 +1,7 @@
 # HANDOVER · JOJO 奇妙格斗 · STAND RUSH
 
-最后更新：2026-11-16  
+最后更新：2026-11-19
+
 源码：<https://github.com/zhuguangjun2002/jojo-stand-rush>  
 在线试玩：<https://jojo.bigcow.net/>（Cloudflare Pages + Workers 在线联机）
 
@@ -8,7 +9,7 @@
 
 这是一个无需构建、打开即玩的横版 2D 网页格斗游戏。角色、替身、舞台、HUD 和特效都由 Canvas 程序化绘制；语音使用预生成的 VOICEVOX 日语 MP3；BGM 和战斗音效由 Web Audio 实时合成。
 
-当前包含 **6 名角色**：
+当前包含 **7 名角色**：
 
 | 角色 | 替身 | 核心玩法 |
 | --- | --- | --- |
@@ -18,6 +19,7 @@
 | 花京院典明 | 法皇之绿 | 绿宝石连射、远程压制 |
 | 透龙 | 奇迹与你 | 灾厄、石头、指令投、灾厄领域 |
 | 东方定助 | 软又湿 / 软又湿·超越 | 泡泡夺属性、受击蓄特殊能量、150 能量进化 |
+| 乔尼·乔斯达 | 牙 ACT1～ACT4 | 骑马 / 上下马、十发独立冷却、药草、双孔穿梭、第二回合无限回转 |
 
 ## 2. 快速启动
 
@@ -47,6 +49,19 @@ HOST=0.0.0.0 PORT=8080 ./run.sh
 - **掉线重连**：WebSocket 断开后客户端冻结画面并按 0.5–5 秒退避重连同一房间/角色；Durable Object 保留 30 秒宽限期和最近 1200 个已配对帧（约 20 秒），重连方发送 `resume(frame)` 后补齐漏掉的帧。超过宽限期或历史不足会提示重新建房。刷新页面/关闭标签页无法恢复对局。
 - **配置**：`js/config.js` 的 `onlineWs` 是静态部署使用的中继地址；`onlineInputDelay` 是测速完成前的初始延迟；设为空字符串可关闭在线联机。
 - **部署**：GitHub Actions 在 `main` 更新后同时发布 Pages 和 Worker。
+
+## 本次交接：乔尼·乔斯达（2026-11-19）
+
+完整操作和数值见 [README.md 的乔尼角色说明](README.md)，回归入口见 [TESTING.md](TESTING.md#乔尼回归)。
+
+- `js/game/johnny.js` 通过 Fighter / Match 原型扩展承载专属状态与绘制；在 `supers.js` 后、`render.js` 和 `main.js` 前加载。`art.js` 的角色绘制入口会分发到 `JG.drawJohnny`，选人、HUD 头像和战斗复用。
+- 初始 ACT1 免费无限爪弹，F 为马冲刺 / 脱身。首个遗体拾取时自动 ACT2，随后 L 上下马；下马不能移动，普通受击没有僵直 / 击退，伤害 +15%；上马疾驰三秒。
+- ACT2 起 `nailSlots[10]` 每个槽独立五秒冷却；G 药草使爪弹及技能冷却各减三秒，自身八秒冷却。`pHerb` 已加入 P1 / P2 / 联机输入，默认 G / 6，手机「草」按钮支持布局编辑。
+- 普通与强力爪弹未命中会留下七秒弹痕，均可跳躲。ACT2 后随机八至十五秒出现专属圣人，靠近进化 ACT3；ACT3 双孔穿梭，强射显示蓝色回旋。
+- `startRound()` 中调用 `resetJohnnyRound()`：第二回合及以后自动 ACT4。形态与遗体解锁跨回合保留；弹药、冷却、上下马和藏身重置。训练场重置恢复 ACT1。
+- ACT4 U 消耗 100 SP，独立 `infiniteNails` 不受普通弹药与冷却约束。`updateTuskTimeless()` 在 hitstop / 超必杀分支之前推进无限回转，命中绕过普通判定并清理正在进行的必杀与冻结后进入 KO。ACT4 长按 K 为高伤欧拉，并可在时停中行动。
+- `assets/finishers/johnny.jpg` 为用户提供的 006.jpg；`supers.js` 注册资源，并对乔尼采用保留完整构图的缩放，配合推进、淡入淡出和「回旋，前进。」台词。001～005 仅为矢量绘制参考，不存在运行时 Downloads 路径依赖。
+- 当前验证：仓库内 64 项浏览器检查、手机药草真实触控、终结图实际触发与绘制通过。外部旧版 4 项 smoke 是历史记录，本次未重跑；在线网络测试也未重新验收。
 
 ## 4. 东方定助最终机制
 
@@ -130,6 +145,7 @@ js/game/core.js     常量、DOM、输入映射、HUD、AI、界面切换
 js/game/fighter.js  角色状态机：移动、出招、受击、特殊能量、进化
 js/game/match.js    回合、镜头、判定、飞行物、泡泡、灾厄、对拳
 js/game/supers.js   超必杀、终结演出等绘制覆盖层
+js/game/johnny.js   乔尼状态、爪弹 / 弹孔、ACT1～4 进化、时停例外与矢量绘制
 js/game/render.js   按界面分发渲染
 js/game/main.js     键盘 / 触屏输入、布局、主循环
 js/net.js           联机房间客户端与锁步输入
@@ -140,6 +156,7 @@ voices/             VOICEVOX 语音与署名
 server.py           本地静态服务器、局域网房间与 WebSocket 中继
 HANDOVER.md         本文件
 TESTING.md          自动化测试说明
+tests/johnny.cjs    仓库内乔尼回归（Playwright Core）
 .github/workflows/deploy-cloudflare.yml  推送到 main 后自动发布 Pages 与 Worker
 ```
 
@@ -157,7 +174,7 @@ git diff --check
 cd ~/webgame-test && npx playwright test
 ```
 
-当前 Playwright smoke：
+历史外部 Playwright smoke（2026-11-16，本次未重跑）：
 
 ```text
 4 passed (desktop / mobile)
@@ -211,11 +228,13 @@ cd ~/webgame-test && npx playwright test
 - [ ] 奇迹与你：3 发石头 / 5 秒冷却 / 短 K 拐击 / 射程 500 / 命中 +15 SP
 - [ ] 奇迹与你：灾厄的恶 40% 概率、40 伤害、不打断动作
 - [ ] 手机 HUD 特殊条没有溢出，触屏按键仍可正常编辑
+- [x] 乔尼：64 项浏览器检查及手机药草触控通过
+- [x] 乔尼：006 终结图加载、实际触发和绘制通过
 
 ## 11. 下一步建议
 
 1. 用实际对战数据继续调东方定助：特殊能量（受击 +2 + 普通 SP 50%）是否过快、150 能量进化是否太慢。
 2. 观察奇迹与你 3 发石头 + 5 秒冷却后的压制力，必要时调 4/5 秒冷却或第 3 发伤害。
 3. 在线联机下一步：把 4 位房间码扩到 6 位、增加创建房间限流/过期清理；如果目标玩家 RTT 长期高于 300ms，评估 WebRTC 直连或更近的中继节点。
-4. 如果需要，补一个仓库内的 `tests/` 目录，把在线双人、延迟调整、掉线重连和东方定助 / 奇迹与你 headless 断言固化成正式测试。
+4. 仓库内已有 `tests/johnny.cjs`。后续可补在线双人、延迟调整、掉线重连和东方定助 / 奇迹与你的专项自动化测试。
 5. 继续补充 VOICEVOX 语音时，同步更新 `voices/README.txt` 和 `voices/VOICEVOX-CREDITS.txt`。

@@ -24,6 +24,8 @@
   }
   class Fighter {
     constructor(charId, index, x, facing, variant, cpu) {
+      this.tuskAct = 1;
+      this.corpseUnlocked = false;
       this.charId = charId;
       this.data = JG.CHARACTERS[charId];
       this.index = index;
@@ -38,6 +40,15 @@
       this.maxHp = JG.MAX_HP;
       this.hp = JG.MAX_HP;
       this.meter = 50;
+      this.mounted = true;
+      this.nailSlots = Array(10).fill(0);
+      this.nailCd = 0;
+      this.nailPose = 0;
+      this.tuskHand = null;
+      this.hasCorpse = false;
+      this.tuskHidden = false;
+      this.tuskHole = null;
+      this.saintDelay = null;
       this.state = 'intro';
       this.animTime = Math.random() * 3;
       this.seed = (fighterSeed += 1.37) + Math.random();
@@ -133,6 +144,15 @@
       this.facing = facing;
       this.hp = this.maxHp;
       this.meter = 50;
+      this.mounted = true;
+      this.nailSlots = Array(10).fill(0);
+      this.nailCd = 0;
+      this.nailPose = 0;
+      this.tuskHand = null;
+      this.hasCorpse = false;
+      this.tuskHidden = false;
+      this.tuskHole = null;
+      this.saintDelay = null;
       this.state = 'intro';
       this.attack = null;
       this.attackTime = 0;
@@ -725,6 +745,12 @@
       if (this.state === 'ko') {
         this.koP = Math.min(1, this.koP + dt * 2.8);
         if (!this.onGround) this.applyGravity(dt, match);
+        return;
+      }
+      if (this.charId === 'johnny' && this.state !== 'intro' && this.state !== 'victory' &&
+          (!this.frozen || match.isTuskTimeFree(this))) {
+        this.frozen = false;
+        this.updateJohnny(dt, opponent, input, match);
         return;
       }
       if (this.frozen) {
@@ -1853,6 +1879,7 @@
     }
 
     getHurtbox() {
+      if (this.tuskHidden) return { x1: -9999, x2: -9998, y1: -9999, y2: -9998 };
       const h = this.guarding ? 166 : 200;
       return { x1: this.x - 25, x2: this.x + 25, y1: this.y - h, y2: this.y - 3 };
     }

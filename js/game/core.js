@@ -165,23 +165,23 @@
 
   const KEY_ACTIONS = [
     'left', 'right', 'up', 'down', 'light', 'heavy',
-    'special', 'second', 'super', 'dodge'
+    'special', 'second', 'super', 'dodge', 'herb'
   ];
   const KEY_ACTION_LABELS = {
     left: '向左', right: '向右', up: '跳跃', down: '防御',
     light: '轻攻击', heavy: '重攻击', special: 'L 技能',
-    second: 'H 技能', super: 'U 超必杀', dodge: '闪避'
+    second: 'H 技能', super: 'U 超必杀', dodge: '闪避', herb: '乔尼·药草'
   };
   const DEFAULT_KEY_BINDINGS = {
     p1: {
       left: 'KeyA', right: 'KeyD', up: 'Space', down: 'KeyS',
       light: 'KeyJ', heavy: 'KeyK', special: 'KeyL', second: 'KeyH',
-      super: 'KeyU', dodge: 'KeyF'
+      super: 'KeyU', dodge: 'KeyF', herb: 'KeyG'
     },
     p2: {
       left: 'ArrowLeft', right: 'ArrowRight', up: 'ArrowUp', down: 'ArrowDown',
       light: 'Digit1', heavy: 'Digit2', special: 'Digit3', second: 'Digit5',
-      super: 'Digit4', dodge: 'ShiftRight'
+      super: 'Digit4', dodge: 'ShiftRight', herb: 'Digit6'
     }
   };
   const KEY_BINDINGS = {
@@ -193,7 +193,7 @@
     left: ['ArrowLeft'], right: ['ArrowRight'], up: ['ArrowUp'], down: ['ArrowDown'],
     light: ['Digit1', 'Numpad1'], heavy: ['Digit2', 'Numpad2'],
     special: ['Digit3', 'Numpad3'], second: ['Digit5', 'Numpad5'],
-    super: ['Digit4', 'Numpad0'], dodge: []
+    super: ['Digit4', 'Numpad0'], dodge: [], herb: ['Digit6', 'Numpad6']
   };
   const P1_KEYS = {};
   const P2_KEYS = {};
@@ -453,6 +453,12 @@
     if (!match || App.screen !== 'fight') return;
     const p1 = match.p1;
     const p2 = match.p2;
+    for (const f of [p1, p2]) {
+      if (f.charId !== 'johnny') continue;
+      const standEl = $(f.index === 0 ? 'p1-stand' : 'p2-stand');
+      const label = 'TUSK ACT' + f.tuskAct;
+      if (standEl && standEl.textContent !== label) standEl.textContent = label;
+    }
 
     // HUD updates are cached: only write DOM/style when a displayed value changes.
     App.ghostHp[0] = p1.hp > App.ghostHp[0] ? p1.hp : lerp(App.ghostHp[0], p1.hp, 0.09);
@@ -612,6 +618,9 @@
     const show = document.body.classList.contains('touch') &&
       (App.touchEditing || (App.screen === 'fight' && !App.paused));
     dom.touch.classList.toggle('hidden', !show);
+    const herb = document.querySelector('[data-touch-key="herb"]');
+    const fighter = App.game && App.game.fighters[App.mode === 'net' && JG.Net ? JG.Net.localIndex : 0];
+    if (herb) herb.classList.toggle('hidden', !fighter || fighter.charId !== 'johnny');
   }
 
   /* =========================================================
@@ -935,6 +944,9 @@
       : App.mode === '2p'
         ? `<b>P1</b>A/D 移动 <i>·</i> Space 跳 <i>·</i> S 防 <i>·</i> J/K 攻击 <i>·</i> F 闪避 <i>·</i> L 二技能（CD 8s） <i>·</i> H 追击 <i>·</i> U 超必杀　<b>P2</b>方向键 + 1/2/3/5/4 + 右Shift闪避<br>${advancedHint}`
         : `<b>P1</b>A/D 或 ←/→ 移动 <i>·</i> Space/↑ 跳跃 <i>·</i> S/↓ 防御 <i>·</i> J/K 攻击 <i>·</i> F 闪避 <i>·</i> L 二技能（CD 8s） <i>·</i> H 追击 <i>·</i> U 超必杀 <i>·</i> Esc 暂停<br>${advancedHint}`;
+    if (p1Id === 'johnny' || p2Id === 'johnny') {
+      dom.controlHint.innerHTML = '<b>乔尼</b> A/D 骑马移动 · F 马冲刺/受击脱身 · 拾遗体后 L 上下马 · J 普通/K 强力爪弹 · G 药草<br>ACT3 H 入孔 · 左右两孔穿梭 · J 伸手射击 / K 出孔强射 · 第二回合 ACT4：U 100SP 无限回转 / 长按K欧拉<br>P2 对应：方向键移动 · 1/2/3/5/4/6 = J/K/L/H/U/G · 右Shift = F';
+    }
     App.hintUntil = performance.now() + 7200;
     Input.clear();
     updateTouch();
@@ -1042,6 +1054,7 @@
       pSpecial: hit(map.special),
       pSecond: hit(map.second),
       pSuper: hit(map.super),
+      pHerb: hit(map.herb),
       pDodge: hit(map.dodge)
     };
   }
@@ -1170,7 +1183,7 @@
     }
     if (!threat && match && (match.projectiles || match.josukeBubbles)) {
       let closest = null;
-      const incoming = (match.projectiles || []).concat(match.josukeBubbles || []);
+      const incoming = (match.projectiles || []).concat(match.josukeBubbles || [], match.tuskNails || []);
       for (const p of incoming) {
         if (p.owner !== opp) continue;
         const dx = f.x - p.x;

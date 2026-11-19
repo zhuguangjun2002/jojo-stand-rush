@@ -676,7 +676,7 @@ body.touch .keys-columns { grid-template-columns: 1fr; gap: 18px; }
   position: relative;
   z-index: 2;
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(7, 1fr);
   gap: 12px;
   margin-top: 22px;
 }
@@ -2017,3 +2017,6 @@ body.touch .pause-touch-tools {
 @media (max-width: 760px) {
   .fan-note { display: none; }
 }
+
+/* Johnny's herb is separate from the six-button attack cluster. */
+.touch-btn.atk.herb { position: fixed; left: 42%; top: 50%; pointer-events: auto; border-color: #97eab0; color: #b5ffba; }

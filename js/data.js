@@ -596,7 +596,25 @@
     }
   };
 
-  JG.CHAR_LIST = ['jotaro', 'dio', 'giorno', 'kakyoin', 'tooru', 'josuke'];
+  JG.CHARACTERS.johnny = {
+    ...JG.CHARACTERS.jotaro,
+    id: 'johnny', index: '07', name: '乔尼·乔斯达', short: '乔尼', en: 'JOHNNY JOESTAR',
+    stand: 'TUSK ACT1–4', standJp: '牙 ACT1～ACT4', tag: 'SPIN / HORSEBACK',
+    style: '上下马 · 十发爪弹 · 无限回转', stage: 'morioh',
+    stats: { power: 3, speed: 5, range: 5 }, accent: '#ff95ce', accent2: '#8dcfff',
+    colors: { hp: 'linear-gradient(90deg,#ae4b9b,#ff95ce,#fff0fc)', aura: '#ff95ce', glow: 'rgba(255,149,206,.5)' },
+    palette: { ...JG.CHARACTERS.jotaro.palette, coat: '#cee8fa', coatShade: '#6394c6',
+      pants: '#e0edfc', pantsShade: '#8aa7ce', hair: '#efd18a', hairShade: '#ba914d', trim: '#dc83c1' },
+    alt: { coat: '#e9c4ea', coatShade: '#b376b0', pants: '#d4b4df' },
+    speed: 290, jump: 0, weight: 1,
+    second: { type: 'nail', name: '回旋爪弹 / ACT3 入孔', cost: 0 },
+    special: { type: 'nail', name: '回旋爪弹 / 遗体进化', cost: 0 },
+    super: { type: 'infiniteRotation', name: '牙 ACT4 · 无限回转', en: 'TUSK ACT4 · INFINITE ROTATION', cost: 100 },
+    ai: { aggression: 0.65, block: 0.4, jump: 0, special: 0.7, range: 460 },
+    intro: '“我要找回属于自己的道路。”', win: '“这就是回旋的力量。”',
+    ko: '“还不能……放弃……”', finisherQuote: '回旋，前进。', hurt: ['还没完。', '我会继续前进。']
+  };
+  JG.CHAR_LIST = ['jotaro', 'dio', 'giorno', 'kakyoin', 'tooru', 'josuke', 'johnny'];
 
   JG.STAGES = {
     morioh: {

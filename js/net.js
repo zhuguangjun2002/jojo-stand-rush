@@ -21,7 +21,7 @@
     left: false, right: false, down: false, heavy: false, second: false,
     dodge: false, pUp: false, pLeft: false, pRight: false, pLight: false,
     pHeavy: false, pSpecial: false, pSecond: false, pSuper: false,
-    pDodge: false
+    pHerb: false, pDodge: false
   };
 
   const RECONNECT_DELAYS = [500, 1000, 2000, 3000, 5000, 5000, 5000, 5000];

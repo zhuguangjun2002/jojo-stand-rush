@@ -320,7 +320,7 @@
      Custom touch layout
      ========================================================= */
   const TOUCH_LAYOUT_KEY = 'jojo-touch-layout';
-  const TOUCH_LAYOUT_KEYS = ['stick', 'light', 'heavy', 'special', 'follow', 'dodge', 'super'];
+  const TOUCH_LAYOUT_KEYS = ['stick', 'light', 'heavy', 'special', 'follow', 'dodge', 'super', 'herb'];
   const TOUCH_CONTROL_NAMES = {
     stick: '虚拟轮盘',
     light: '轻攻击',
@@ -328,7 +328,8 @@
     special: '二技能',
     follow: '追击技',
     dodge: '闪避',
-    super: '超必杀'
+    super: '超必杀',
+    herb: '乔尼·药草'
   };
   const TOUCH_MARGIN = 8;
   const TOUCH_SCALE_MIN = 0.7;

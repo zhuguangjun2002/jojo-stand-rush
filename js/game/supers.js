@@ -15,7 +15,8 @@
     giorno: 'assets/finishers/giorno.jpg',
     kakyoin: 'assets/finishers/kakyoin.jpg',
     tooru: 'assets/finishers/tooru.png',
-    josuke: 'assets/finishers/josuke.jpg'
+    josuke: 'assets/finishers/josuke.jpg',
+    johnny: 'assets/finishers/johnny.jpg'
   };
   // Where the face sits inside each plate, so tall images do not show only a
   // chest when they are cropped to 16:9.
@@ -25,7 +26,8 @@
     giorno: { x: 0.5, y: 0.4 },
     kakyoin: { x: 0.5, y: 0.38 },
     tooru: { x: 0.5, y: 0.32 },
-    josuke: { x: 0.5, y: 0.52 }
+    josuke: { x: 0.5, y: 0.52 },
+    johnny: { x: 0.5, y: 0.5 }
   };
   const finisherImages = {};
   if (typeof Image !== 'undefined') {
@@ -62,7 +64,13 @@
         const zoom = 1.045 + 0.055 * clamp(f.time / f.duration, 0, 1);
         const iw = plate.naturalWidth;
         const ih = plate.naturalHeight;
-        const cover = Math.max(W / iw, (H - 20) / ih) * zoom;
+        // Preserve both Johnny and ACT4 in the supplied square composition.
+        const fit = f.charId === 'johnny' ? Math.min : Math.max;
+        const cover = fit(W / iw, (H - 20) / ih) * zoom;
+        if (f.charId === 'johnny') {
+          ctx.fillStyle = '#170e23';
+          ctx.fillRect(0, 0, W, H);
+        }
         const dw = iw * cover;
         const dh = ih * cover;
         const focus = FINISHER_FOCUS[f.charId] || { x: 0.5, y: 0.5 };
@@ -434,6 +442,7 @@
     },
 
     drawFighterOutro(ctx, f, t) {
+      if (this.drawInfiniteDefeat(ctx, f, t)) return;
       const o = this.outroInfo();
       if (!o || o.loser !== f || f.state !== 'ko') {
         Art.drawFighter(ctx, f, t);

@@ -3400,7 +3400,8 @@
         alpha: (opts.alpha == null ? 1 : opts.alpha) * fade
       });
     }
-    drawFighterVector(ctx, f, t, opts);
+    if (f.charId === 'johnny' && JG.drawJohnny) JG.drawJohnny(ctx, f, t, opts);
+    else drawFighterVector(ctx, f, t, opts);
   }
 
   /* =========================================================
@@ -3478,7 +3479,7 @@
     };
     f.vis = targetPose(f, 1.2);
     ctx.save();
-    drawFighter(ctx, f, 1.3, { scale: 1.3, noShadow: false });
+    drawFighter(ctx, f, 1.3, { scale: charId === 'johnny' ? 0.96 : 1.3, noShadow: false });
     ctx.restore();
 
     // bottom fade
@@ -3538,6 +3539,7 @@
     };
     f.vis = targetPose(f, 0.4);
     ctx.save();
+    if (charId === 'johnny') f.y = 294;
     drawFighter(ctx, f, 0.4, { scale: 1.04, noShadow: true });
     ctx.restore();
 

@@ -2,7 +2,7 @@
 
 > 早期测试环境是 Windows + WSL2 下的独立目录 `~/webgame-test`。当前维护环境为 Linux Mint；下面的 WSLg 规则只在回到 WSL 时适用。
 
-本仓库的自动化测试环境不在仓库内，原位置为 `~/webgame-test`（Playwright + Chrome for Testing）。如果需要在新机器上复现，可以直接安装 Playwright，或把测试迁回仓库的 `tests/` 目录。
+早期整站 smoke 测试位于外部目录 `~/webgame-test`（Playwright + Chrome for Testing），该路径在当前机器上不存在。当前仓库已包含 `tests/johnny.cjs`，覆盖乔尼及其对其他角色的回归；具体安装和运行方式见下方「乔尼回归」。旧版整站、在线双人和掉线重连检查仍按下文单独执行。
 
 ## 快速开始
 
@@ -111,3 +111,32 @@ npx playwright show-report
 > 「事故记录：WSLg 下 GPU 测试导致黑屏」一节。
 
 游戏本身的启动方式见 [README.md](README.md)。
+
+
+## 乔尼回归
+
+该脚本直接使用 Node.js、`playwright-core` 与 Chromium，不依赖 Playwright Test runner。可将依赖装在独立目录，避免在游戏仓库创建包管理文件：
+
+```bash
+mkdir -p /tmp/jojo-browser-tests
+npm install --prefix /tmp/jojo-browser-tests playwright-core
+/tmp/jojo-browser-tests/node_modules/.bin/playwright-core install chromium
+```
+
+本地启动静态服务后执行：
+
+```bash
+python3 -m http.server 8081
+# 另一终端；若 Playwright 在外部目录，设置 NODE_PATH 指向其 node_modules
+NODE_PATH=/tmp/jojo-browser-tests/node_modules node tests/johnny.cjs
+# 可通过 GAME_URL 指向其他本地端口
+```
+
+覆盖 ACT1 无限免费射击、马前后冲刺 / 受击脱身、首次遗体自动进化、L 上下马、下马不可移动但无僵直与伤害增益、三秒上马疾驰、十个独立五秒爪弹槽、G 药草和 P2 / 手机对应输入、ACT2 普通 / 强射、ACT3 蓝色回旋与双孔能力、ACT4 第二回合自动进化 / 长按 K 连打 / 100 SP 无限回转、时停中的移动与射击、无视防御 / 无敌 / 灾厄 / 时停的斩杀、打断其他必杀演出、跨回合及训练场重置、双乔尼独立进化与固定种子 360 帧同步。截图输出到 `/tmp/jojo-johnny-battle.png`、`/tmp/jojo-johnny-roster.png`、`/tmp/jojo-johnny-infinite.png` 和 `/tmp/jojo-johnny-mobile.png`。无限回转截图用于查看旋转切片退场，脚本会临时隐藏终结图片覆盖层。
+
+### 2026-11-19 验证记录
+
+- `node --check`：已修改 JavaScript 文件通过语法检查；`git diff --check` 通过。
+- `tests/johnny.cjs`：**64 项检查通过**，另有 **手机药草按钮真实触控通过**。包含六名既有角色的必杀 / 绘制回归和固定种子双模拟 360 帧一致性；这不是两台真实在线客户端的联机验收。
+- 终结参考图 006：`assets/finishers/johnny.jpg` 返回成功，浏览器图片解码正常；实际触发乔尼无限回转 KO 后确认终结图加载、完整构图与台词绘制，无页面异常。预览截图为 `/tmp/jojo-johnny-finisher-006.png`。
+- 本次未重新执行旧版外部整站 smoke、跨网双客户端对战或断线重连验收。
