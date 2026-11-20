@@ -55,11 +55,12 @@ HOST=0.0.0.0 PORT=8080 ./run.sh
 完整操作和数值见 [README.md 的乔尼角色说明](README.md)，回归入口见 [TESTING.md](TESTING.md#乔尼回归)。
 
 - `js/game/johnny.js` 通过 Fighter / Match 原型扩展承载专属状态与绘制；在 `supers.js` 后、`render.js` 和 `main.js` 前加载。`art.js` 的角色绘制入口会分发到 `JG.drawJohnny`，选人、HUD 头像和战斗复用。
-- 初始 ACT1 免费无限爪弹，F 为马冲刺 / 脱身。首个遗体拾取时自动 ACT2，随后 L 上下马；下马不能移动，普通受击没有僵直 / 击退，伤害 +15%；上马疾驰三秒。
+- 初始 ACT1 免费无限爪弹，F 为马冲刺 / 脱身。首个遗体拾取时自动 ACT2，随后 L 上下马；下马不能移动，伤害 +15%；上下马均有正常受击僵直/击退，并可用 down 输入防御，上马疾驰三秒。
 - ACT2 起 `nailSlots[10]` 每个槽独立五秒冷却；G 药草使爪弹及技能冷却各减三秒，自身八秒冷却。`pHerb` 已加入 P1 / P2 / 联机输入，默认 G / 6，手机「草」按钮支持布局编辑。
 - 普通与强力爪弹未命中会留下七秒弹痕，均可跳躲。ACT2 后随机八至十五秒出现专属圣人，靠近进化 ACT3；ACT3 双孔穿梭，强射显示蓝色回旋。
 - `startRound()` 中调用 `resetJohnnyRound()`：第二回合及以后自动 ACT4。形态与遗体解锁跨回合保留；弹药、冷却、上下马和藏身重置。训练场重置恢复 ACT1。
-- ACT4 U 消耗 100 SP，独立 `infiniteNails` 不受普通弹药与冷却约束。`updateTuskTimeless()` 在 hitstop / 超必杀分支之前推进无限回转，命中绕过普通判定并清理正在进行的必杀与冻结后进入 KO。ACT4 长按 K 为高伤欧拉，并可在时停中行动。
+- ACT4 骑马 U 消耗 100 SP，下马/藏身/防御/僵直不可释放。独立 `infiniteNails` 不受普通弹药与冷却约束。`updateTuskTimeless()` 在 hitstop / 超必杀分支之前推进无限回转；命中绕过普通判定并清理必杀与冻结，造成最大生命值 70% 伤害，命中前不足最大生命值 20% 则斩杀。非致死命中进入普通受击僵直，只有致死才进入 KO。ACT4 长按 K 为高伤欧拉，并可在时停中行动。
+- `Match.drawPlayerRings()` 在战斗世界坐标绘制 P1 蓝色 / P2 红色脚下光圈，按玩家 index 而非左右位置选色，藏身时隐藏；骑马扩大圈径。`Audio.johnnyLine()` 使用八个本地 VOICEVOX MP3，带播放节流与系统语音回退，台词见 `voices/johnny-lines.json`。
 - `assets/finishers/johnny.jpg` 为用户提供的 006.jpg；`supers.js` 注册资源，并对乔尼采用保留完整构图的缩放，配合推进、淡入淡出和「回旋，前进。」台词。001～005 仅为矢量绘制参考，不存在运行时 Downloads 路径依赖。
 - 当前验证：仓库内 64 项浏览器检查、手机药草真实触控、终结图实际触发与绘制通过。外部旧版 4 项 smoke 是历史记录，本次未重跑；在线网络测试也未重新验收。
 

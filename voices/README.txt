@@ -34,6 +34,9 @@ JOJO 奇妙格斗 · 可选语音包
   josuke_finisher.mp3      泡沫は、すべてを奪う。
 
 当前附带语音：
+- 乔尼使用 johnny_intro / nail / barrage / evolve / super / herb / hurt / finisher.mp3，
+  分别对应出场、爪弹、连打、进化、无限回转、药草、受击与终结。
+  VOICEVOX 玄野武宏（ノーマル），台词与处理参数见 johnny-lines.json。
 - 本目录下的 MP3 是用 VOICEVOX 合成的角色台词。
 - 使用四个不同男声：青山龍星（承太郎 / 透龙）、玄野武宏（DIO / 东方定助）、
   白上虎太郎（乔鲁诺）、剣崎雌雄（花京院）。

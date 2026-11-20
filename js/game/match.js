@@ -453,11 +453,11 @@
         defender.vy = move.lift / defender.data.weight;
         defender.onGround = false;
       }
-      if (defender.charId === 'johnny' && defender.corpseUnlocked && !defender.mounted) {
-        defender.hitstun = defender.blockstun = 0;
-        defender.vx = defender.vy = 0;
-        defender.y = GROUND;
-        defender.onGround = true;
+      if (defender.charId === 'johnny') {
+        defender.horseDash = 0;
+        defender.heavyHold = 0;
+        defender.nailPose = 0;
+        Audio.johnnyLine('hurt');
       }
       attacker.damageDealt += dmg;
       // Energy rules: J +5, short K +8, held-K barrage +1, H is handled once on cast,
@@ -1853,6 +1853,7 @@
         };
         if (winner.charId === 'tooru') Audio.tooruLine('finisher');
         else if (winner.charId === 'josuke') Audio.josukeLine('finisher');
+        else if (winner.charId === 'johnny') Audio.johnnyLine('finisher');
       } else {
         this.finisher = null;
       }
@@ -2057,6 +2058,31 @@
       }
     }
 
+    drawPlayerRings(ctx, t) {
+      for (const f of this.fighters) {
+        if (f.tuskHidden || f.hp <= 0) continue;
+        const color = f.index === 0 ? '#409cff' : '#ff4c63';
+        const radius = f.charId === 'johnny' && f.mounted ? 118 : 64;
+        ctx.save();
+        ctx.globalAlpha = 0.85 + Math.sin(t * 3) * 0.1;
+        ctx.strokeStyle = color;
+        ctx.fillStyle = f.index === 0 ? 'rgba(64,156,255,.12)' : 'rgba(255,76,99,.12)';
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 14;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.ellipse(f.x, GROUND + 2, radius, 15, 0, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha *= 0.6;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.ellipse(f.x, GROUND + 2, radius + 6, 19, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
     render(ctx, t) {
       const shakeX = (Math.random() * 2 - 1) * this.shake;
       const shakeY = (Math.random() * 2 - 1) * this.shake * 0.6;
@@ -2081,6 +2107,7 @@
       this.drawFrogs(ctx, t);
       this.drawWouStones(ctx, t);
       this.drawWouBugs(ctx, t);
+      this.drawPlayerRings(ctx, t);
 
       // Wonder of U uses the wall as its entrance/exit.
       for (const f of this.fighters) {

@@ -945,7 +945,7 @@
         ? `<b>P1</b>A/D 移动 <i>·</i> Space 跳 <i>·</i> S 防 <i>·</i> J/K 攻击 <i>·</i> F 闪避 <i>·</i> L 二技能（CD 8s） <i>·</i> H 追击 <i>·</i> U 超必杀　<b>P2</b>方向键 + 1/2/3/5/4 + 右Shift闪避<br>${advancedHint}`
         : `<b>P1</b>A/D 或 ←/→ 移动 <i>·</i> Space/↑ 跳跃 <i>·</i> S/↓ 防御 <i>·</i> J/K 攻击 <i>·</i> F 闪避 <i>·</i> L 二技能（CD 8s） <i>·</i> H 追击 <i>·</i> U 超必杀 <i>·</i> Esc 暂停<br>${advancedHint}`;
     if (p1Id === 'johnny' || p2Id === 'johnny') {
-      dom.controlHint.innerHTML = '<b>乔尼</b> A/D 骑马移动 · F 马冲刺/受击脱身 · 拾遗体后 L 上下马 · J 普通/K 强力爪弹 · G 药草<br>ACT3 H 入孔 · 左右两孔穿梭 · J 伸手射击 / K 出孔强射 · 第二回合 ACT4：U 100SP 无限回转 / 长按K欧拉<br>P2 对应：方向键移动 · 1/2/3/5/4/6 = J/K/L/H/U/G · 右Shift = F';
+      dom.controlHint.innerHTML = '<b>乔尼</b> A/D 骑马移动 · S 向下防御 · F 马冲刺/受击脱身 · 拾遗体后 L 上下马 · J 普通/K 强力爪弹 · G 药草<br>ACT3 H 入孔 · 左右两孔穿梭 · J 伸手射击 / K 出孔强射 · 第二回合 ACT4：骑马 U 100SP 无限回转 / 长按K欧拉<br>P2 对应：方向键移动/向下防御 · 1/2/3/5/4/6 = J/K/L/H/U/G · 右Shift = F';
     }
     App.hintUntil = performance.now() + 7200;
     Input.clear();

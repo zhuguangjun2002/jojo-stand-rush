@@ -15,6 +15,9 @@
         this.corpseUnlocked = true;
         match.spawnText(this.x, GROUND - 300, '骑兵回旋 · 牙 ACT4', '#fff1b5', 32, 2.4);
         match.spawnRing(this.x, GROUND - 120, PINK, 230);
+        Audio.johnnyLine('evolve');
+      } else {
+        Audio.johnnyLine('intro');
       }
     },
     fireNail(match, strong = false, origin = null) {
@@ -33,10 +36,12 @@
         y: GROUND - 92, vx: this.facing * (strong ? 1120 : 900), vy: 135,
         damage: Math.round(damage), strong, life: 1.1 });
       Audio.projectile();
+      Audio.johnnyLine('nail');
       return true;
     },
     fireInfiniteNail(match) {
-      if (this.tuskAct !== 4 || this.meter < 100 || this.hp <= 0) return false;
+      if (this.tuskAct !== 4 || this.meter < 100 || this.hp <= 0 || !this.mounted ||
+          this.tuskHidden || this.hitstun > 0 || this.blockstun > 0 || this.guarding) return false;
       this.meter -= 100;
       this.supersUsed++;
       this.blueSpin = 0.9;
@@ -45,6 +50,7 @@
       match.spawnText(this.x, this.y - 270, '牙 ACT4 · 无限回转', '#bfefff', 28, 1.3);
       match.spawnRing(this.x, this.y - 150, '#8fdfff', 110);
       Audio.beam();
+      Audio.johnnyLine('super');
       return true;
     },
     drinkHerb(match) {
@@ -58,6 +64,7 @@
       match.spawnText(this.x, this.y - 260, '药草 · 冷却 −3秒', '#b5ffba', 22, 1);
       match.spawnRing(this.x, this.y - 100, '#91eab0', 90);
       Audio.heal();
+      Audio.johnnyLine('herb');
       return true;
     },
     toggleJohnnyMount(match) {
@@ -66,7 +73,7 @@
       this.y = GROUND;
       this.onGround = true;
       if (this.mounted) this.mountBoost = 3;
-      match.spawnText(this.x, this.y - 270, this.mounted ? '上马 · 3秒疾驰' : '下马 · 不可移动 / 无僵直 / 伤害 +15%', PINK, 20, 1);
+      match.spawnText(this.x, this.y - 270, this.mounted ? '上马 · 3秒疾驰' : '下马 · 不可移动 / 伤害 +15% / 无法无限回转', PINK, 20, 1);
     },
     horseRush(match, controls, escape = false) {
       if (escape ? this.burstCd > 0 || this.meter < 25 : this.horseCd > 0 || !this.mounted) return false;
@@ -119,22 +126,17 @@
           pSuper: this.tuskAct === 4 && this.meter >= 100,
           heavy: this.tuskAct === 4 && Math.abs(delta) < 200,
           pDodge: this.hitstun > 0,
+          down: !goal && opponent.attack && Math.abs(delta) < 240,
           pSecond: this.tuskAct === 3 && !this.tuskHidden && match.rand() < dt * 0.45,
           pHeavy: this.tuskHidden && match.rand() < dt * 0.8 };
       }
-      // ACT4 can launch its infinite rotation while time itself is stopped.
-      if (controls.pSuper && this.tuskAct === 4) this.fireInfiniteNail(match);
-      if (this.corpseUnlocked && !this.mounted) {
-        this.hitstun = this.blockstun = 0;
-        this.vx = this.vy = 0;
-        this.y = GROUND;
-        this.onGround = true;
-      }
       if (this.hitstun > 0 && controls.pDodge) this.horseRush(match, controls, true);
       if (this.hitstun > 0 || this.blockstun > 0) {
+        const blocking = this.hitstun <= 0 && this.blockstun > 0;
         this.hitstun = Math.max(0, this.hitstun - dt);
         this.blockstun = Math.max(0, this.blockstun - dt);
-        this.state = 'hitstun';
+        this.state = blocking ? 'blockstun' : 'hitstun';
+        this.guarding = blocking;
         this.vx *= Math.pow(.05, dt);
         this.moveX(dt);
         if (!this.onGround) this.applyGravity(dt, match);
@@ -142,6 +144,17 @@
       }
       this.attack = null;
       this.specialAction = null;
+      this.guarding = !!controls.down && this.onGround && !this.tuskHidden &&
+        this.horseDash <= 0 && this.guardBroken <= 0;
+      if (this.guarding) {
+        this.vx = 0;
+        this.state = 'guard';
+        this.heavyHold = 0;
+        this.tuskBarrageTick = 0;
+        return;
+      }
+      // ACT4 can fire in stopped time, but cannot act out of hit/block stun.
+      if (controls.pSuper && this.tuskAct === 4) this.fireInfiniteNail(match);
       if (controls.pHerb && this.tuskAct >= 2) this.drinkHerb(match);
       if (this.tuskHidden) {
         this.vx = 0;
@@ -196,6 +209,7 @@
         this.tuskBarrageTick -= dt;
         if (this.tuskBarrageTick <= 0) {
           this.tuskBarrageTick = .09;
+          Audio.johnnyLine('barrage');
           if (Math.abs(opponent.x-this.x) < 220 && !opponent.tuskHidden && Math.abs(opponent.y-this.y) < 190) {
             const landed = match.resolveHit(this, opponent, { damage: this.mounted ? 72 : 83, hitstun: .19,
               knockback: 1, lift: 0, sfx: 'hitHeavy' }, { source: 'barrage' });
@@ -247,22 +261,36 @@
       }
     },
     finishInfiniteRotation(owner, target) {
-      const damage=target.hp;
+      const previousHp = target.hp;
+      const execute = previousHp < target.maxHp * 0.2;
+      const damage = execute ? previousHp : Math.min(previousHp, Math.round(target.maxHp * 0.7));
       // Deliberately bypass guard, invulnerability, calamity and time-stop rules.
       this.super = this.wouRain = this.miniTimeStop = null;
       this.koPending = null;
       G.hideSuperBanner();
       for (const f of this.fighters) f.frozen=false;
       target.tuskHidden=false; target.tuskHole=null;
-      target.hp=0;
+      target.hp = Math.max(0, previousHp - damage);
+      target.attack = target.specialAction = null;
+      target.guarding = false;
+      target.blockstun = 0;
+      target.hitstun = Math.max(target.hitstun, 0.65);
+      target.hitFlash = 0.2;
+      target.state = 'hitstun';
+      if (target.charId === 'johnny') target.horseDash = 0;
+      Audio.stopChant(target);
       owner.damageDealt+=damage;
       owner.combo++; owner.maxCombo=Math.max(owner.maxCombo,owner.combo);
-      this.infiniteKO={ target, x:target.x, y:target.y, time:0, palette:{...target.palette} };
-      this.spawnText(target.x,target.y-270,'无限回转 · 斩杀','#c6eeff',38,2);
+      if (target.hp <= 0 && !this.training) {
+        this.infiniteKO={ target, x:target.x, y:target.y, time:0, palette:{...target.palette} };
+      }
+      this.spawnText(target.x,target.y-270,target.hp <= 0 ? '无限回转 · 斩杀' : `无限回转 · ${damage}`,'#c6eeff',38,2);
       this.spawnRing(target.x,target.y-130,'#97dfff',230);
       this.spawnSpark(target.x,target.y-130,PINK,80);
       Audio.hitHeavy();
-      this.beginKO(owner,{super:true});
+      this.shake = Math.max(this.shake, 18);
+      this.hitstop = Math.max(this.hitstop, 0.12);
+      if (target.hp <= 0) this.beginKO(owner,{super:true});
     },
     drawInfiniteDefeat(ctx, f, t) {
       const fx=this.infiniteKO;
@@ -450,7 +478,7 @@
         ctx.fillText(`牙 ACT${f.tuskAct}${f.tuskHidden ? ' · 弹孔内' : ''}`, f.x, GROUND-310);
         const hint = f.tuskHidden ? '←/→ 穿梭 · J 伸手射击 · K 出孔强射' :
           f.tuskAct === 1 ? 'J/K/H/L/U 无限爪弹 · F 马冲刺 · 寻找遗体' :
-          f.tuskAct === 4 ? 'L 上下马 · G 药草 · 长按K 欧拉 · U 100SP 无限回转' :
+          f.tuskAct === 4 ? 'L 上下马 · S 防御 · 长按K 欧拉 · 骑马U 无限回转' :
           f.tuskAct === 2 ? 'J 普通 / K 强射 · L 上下马 · G 药草 · 寻找圣人' :
           'J 普通 / K 蓝色回旋 · H 入孔 · L 上下马 · G 药草';
         ctx.font = '13px sans-serif'; ctx.fillStyle = '#fff0fa';
@@ -464,7 +492,7 @@
             ctx.fillText(cd>0?cd.toFixed(1):'●',x+10,GROUND-260);
           }
           ctx.fillStyle='#b9e9ff'; ctx.font='12px sans-serif';
-          ctx.fillText(`${f.mounted?'骑马':'下马 · 不移动 / 无僵直 / 伤害+15%'} · 药草 ${f.herbCd>0?f.herbCd.toFixed(1)+'s':'就绪'}${f.mountBoost>0?' · 疾驰 '+f.mountBoost.toFixed(1)+'s':''}`,f.x,GROUND-238);
+          ctx.fillText(`${f.mounted?'骑马':'下马 · 不移动 / 伤害+15% / 无法无限回转'} · 药草 ${f.herbCd>0?f.herbCd.toFixed(1)+'s':'就绪'}${f.mountBoost>0?' · 疾驰 '+f.mountBoost.toFixed(1)+'s':''}`,f.x,GROUND-238);
         }
       }
       ctx.restore();
@@ -511,6 +539,8 @@
     ctx.restore();
     ctx.save();
     if (f.mounted === false) ctx.translate(0,130);
+    if (f.state === 'hitstun') { ctx.translate(-12, 4); ctx.rotate(-0.13); }
+    if (f.guarding) { ctx.translate(0, 10); ctx.rotate(0.1); }
     // Johnny stays seated, on the saddle or on the ground.
     if (f.mounted === false) {
       limb(-9,-154,24,-145,pal.pants,19); limb(24,-145,54,-136,pal.pants,15);
@@ -539,9 +569,18 @@
     ellipse(-1,-237,5.5,4.5,'#f4fbff'); ellipse(1,-237,3,4,'#496ec4');
     limb(8,-232,12,-226,pal.skin,3);
     limb(1,-220,10,-220,'#547bb9',4);
-    limb(-4,-199,22,-176,pal.coat,15);
-    limb(22,-176,f.nailPose>0?82:53,f.nailPose>0?-190:-170,pal.skin,11);
-    if(f.nailPose>0) limb(77,-190,94,-190,pal.skin,5);
+    if (f.guarding) {
+      limb(-4,-199,27,-207,pal.coat,15);
+      limb(27,-207,35,-241,pal.skin,11);
+      limb(-22,-197,11,-216,pal.coat,13);
+      limb(11,-216,33,-227,pal.skin,10);
+      ctx.strokeStyle='#8deaff'; ctx.lineWidth=4;
+      ctx.beginPath(); ctx.ellipse(48,-205,15,45,-.12,-Math.PI/2,Math.PI/2); ctx.stroke();
+    } else {
+      limb(-4,-199,22,-176,pal.coat,15);
+      limb(22,-176,f.nailPose>0?82:53,f.nailPose>0?-190:-170,pal.skin,11);
+      if(f.nailPose>0) limb(77,-190,94,-190,pal.skin,5);
+    }
     if (f.blueSpin > 0) {
       ctx.strokeStyle='#71d7ff'; ctx.lineWidth=3;
       for(let i=0;i<4;i++) {

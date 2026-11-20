@@ -1,0 +1,17 @@
+{
+  "engine": "VOICEVOX",
+  "speaker": 11,
+  "speakerName": "玄野武宏（ノーマル）",
+  "service": "https://api.tts.quest/v3/voicevox/synthesis",
+  "lines": {
+    "intro": "ぼくは、自分の道を進む。",
+    "nail": "タスク！回転しろ！",
+    "barrage": "オラオラオラオラ！",
+    "super": "タスク、アクトフォー！無限の回転！",
+    "evolve": "これが、黄金の回転だ！",
+    "herb": "まだ、進める。",
+    "hurt": "まだ、終わらない！",
+    "finisher": "回転は、止まらない。"
+  },
+  "processing": "mono 44100Hz MP3 128kbps; highpass 85Hz; loudnorm -18 LUFS / -2 dBTP"
+}

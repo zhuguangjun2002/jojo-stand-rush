@@ -52,3 +52,11 @@ VOICEVOX のクレジット表記が必要です。
     ※参考動画は実質モノラルで、声と BGM を完全分離することは
       できません。そのため「音楽の低音」ではなく、字幕と一致する
       自己紹介区間のピッチ変化を基準にしています。
+
+追加：乔尼·乔斯达 / 牙 ACT1～ACT4
+================================
+  johnny_*.mp3 は VOICEVOX:玄野武宏（ノーマル、speaker=11）で合成。
+  WEB版VOICEVOX API (tts.quest) を使用。原版声优或动画原声不包含在内。
+  intro / nail / barrage / super / evolve / herb / hurt / finisher。
+  日本語台詞・生成パラメータは johnny-lines.json に記録。
+  mono 44.1kHz / MP3 128kbps、85Hz high-pass、-18 LUFS / -2 dBTP。

@@ -632,6 +632,32 @@
       fallback();
     }
 
+    johnnyLine(kind) {
+      if (this.muted) return;
+      const lines = {
+        intro: ['ぼくは、自分の道を進む。', 'I will follow my own path.', '我要走自己的道路。'],
+        nail: ['タスク！回転しろ！', 'Tusk! Spin!', '牙！回转吧！'],
+        barrage: ['オラオラオラオラ！', 'ORA ORA ORA ORA!', '欧拉欧拉欧拉！'],
+        super: ['タスク、アクトフォー！無限の回転！', 'Tusk ACT FOUR! Infinite rotation!', '牙 ACT4！无限回转！'],
+        evolve: ['これが、黄金の回転だ！', 'This is the golden spin!', '这就是黄金回旋！'],
+        herb: ['まだ、進める。', 'I can keep going.', '还能继续前进。'],
+        hurt: ['まだ、終わらない！', 'It is not over yet!', '还没有结束！'],
+        finisher: ['回転は、止まらない。', 'The rotation never stops.', '回转不会停止。']
+      };
+      const line = lines[kind];
+      if (!line) return;
+      const now = performance.now();
+      const priority = ['super', 'evolve', 'finisher'].includes(kind);
+      // Nail spam and barrage ticks must not restart speech every frame or
+      // interrupt the longer ACT4 line. Audio timing never changes simulation.
+      if (!priority && now < (this.johnnyVoiceUntil || 0)) return;
+      this.johnnyVoiceUntil = now + (priority ? 2800 : kind === 'barrage' ? 1400 : 1100);
+      const fallback = () => this.speak(line[0], line[1], {
+        gender: 'male', rate: 1.02, pitch: 0.95, volume: 0.86
+      }, line[2]);
+      if (!this.voiceClip('johnny_' + kind + '.mp3', fallback, { rate: 1, volume: 0.9 })) fallback();
+    }
+
     primeSpeech() {
       if (this.speechPrimed || !window.speechSynthesis || !window.SpeechSynthesisUtterance) return;
       this.speechPrimed = true;
