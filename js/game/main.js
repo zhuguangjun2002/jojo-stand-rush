@@ -22,20 +22,26 @@
     const hudEl = $('net-latency');
     const remote = Boolean(Net.usingRemote);
     const rtt = Net.rtt == null ? null : Math.round(Net.rtt);
+    const peerRtt = Net.peerRtt == null ? null : Math.round(Net.peerRtt);
+    const worstRtt = Math.max(rtt || 0, peerRtt || 0);
     const delay = remote ? Net.inputDelay : 0;
     const pingText = remote
       ? (rtt == null ? '测量中…' : `${rtt} ms`)
       : '本地';
+    const peerText = peerRtt == null ? '测量中…' : `${peerRtt} ms`;
 
-    if (pingEl) pingEl.textContent = pingText;
+    if (pingEl) pingEl.textContent = remote ? `${pingText} / 对手 ${peerText}` : pingText;
     if (delayEl) delayEl.textContent = String(delay);
     if (hudEl) {
-      hudEl.textContent = remote
+      const summary = remote
         ? (rtt == null ? `测量中… · ${delay} 帧` : `${rtt} ms · ${delay} 帧`)
         : `LAN · ${delay} 帧`;
+      hudEl.textContent = summary + (Net.simulationFps == null ? ''
+        : ` · 模拟 ${Math.round(Net.simulationFps)} FPS · 等待 ${Net.waitPercent}%`);
+      hudEl.title = `本机 ${pingText}；对手 ${peerText}；输入配对往返 ${Net.inputRtt == null ? '--' : Net.inputRtt} ms`;
       hudEl.classList.toggle('hidden', App.mode !== 'net' || App.screen !== 'fight');
-      hudEl.classList.toggle('warn', remote && rtt != null && rtt > 120);
-      hudEl.classList.toggle('bad', remote && rtt != null && rtt > 220);
+      hudEl.classList.toggle('warn', remote && (worstRtt > 120 || Net.waitPercent > 5));
+      hudEl.classList.toggle('bad', remote && (worstRtt > 220 || Net.waitPercent > 20));
     }
   }
 
@@ -1178,26 +1184,15 @@
   const MIN_RENDER_MS = 1000 / 100 - 0.5;
   let acc = 0;
 
-  function stepNetMatch() {
-    if (!App.game || !Net.ws) return;
-    Net.primeInputs();
-    Net.sendNextInput();
-    let steps = 0;
-    while (steps < 4 && App.screen === 'fight') {
-      const frame = Net.nextFrame;
-      const inputs = Net.frames.get(frame);
-      if (!inputs) break;
-      Net.frames.delete(frame);
-      App.game.update(STEP, inputs);
-      Net.nextFrame += 1;
-      // Keep the pipeline ahead of the simulation by inputDelay frames.
-      Net.sendNextInput();
-      steps += 1;
-    }
+  function stepNetMatch(elapsed) {
+    if (!App.game) return;
+    Net.advance(elapsed, (step, inputs) => App.game.update(step, inputs),
+      () => App.screen === 'fight');
   }
 
   function loop(now) {
-    const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
+    const elapsed = Math.max(0, (now - last) / 1000);
+    const dt = Math.min(0.05, elapsed);
     last = now;
     if (document.hidden) {
       acc = 0;
@@ -1207,7 +1202,7 @@
     App.elapsed += dt;
 
     if (App.mode === 'net' && App.game && !App.paused) {
-      if (App.screen === 'fight') stepNetMatch();
+      if (App.screen === 'fight') stepNetMatch(elapsed);
       acc = 0;
     } else if (App.screen === 'fight' && App.game && !App.paused) {
       acc += dt;

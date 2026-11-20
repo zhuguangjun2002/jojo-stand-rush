@@ -25,6 +25,7 @@
   };
 
   const RECONNECT_DELAYS = [500, 1000, 2000, 3000, 5000, 5000, 5000, 5000];
+  const STEP = 1 / 60;
 
   function median(values) {
     if (!values.length) return null;
@@ -64,6 +65,14 @@
     peerRttSamples: [],
     lastDelayChange: 0,
     lowRttSince: 0,
+    clock: 0,
+    statsTime: 0,
+    statsSteps: 0,
+    statsWait: 0,
+    simulationFps: null,
+    waitPercent: 0,
+    inputRtt: null,
+    sentTimes: new Map(),
 
     on(event, fn) {
       (this.listeners[event] || (this.listeners[event] = [])).push(fn);
@@ -247,7 +256,7 @@
       const ping = () => {
         if (!this.ws || this.ws.readyState !== 1) return;
         this.send({ type: 'ping', t: performance.now() });
-        if (this.rtt != null) this.send({ type: 'latency', rtt: this.rtt });
+        if (this.rtt != null) this.send({ type: 'latency', rtt: Math.max(...this.rttSamples) });
       };
       ping();
       this.pingTimer = setInterval(ping, 2000);
@@ -358,12 +367,13 @@
 
     recommendedDelay() {
       if (!this.usingRemote) return 0;
-      const rtt = Math.max(this.rtt || 0, this.peerRtt || 0);
+      const rtt = Math.max(this.rtt || 0, this.peerRtt || 0,
+        ...this.rttSamples, ...this.peerRttSamples);
       if (!rtt) return this.inputDelay || 12;
-      // Inputs only need to cover one-way latency; RTT / 2 is the useful
-      // number here. Three extra frames cover jitter and scheduling.
-      const oneWay = rtt / 2;
-      return Math.max(4, Math.min(24, Math.ceil(oneWay / (1000 / 60)) + 3));
+      // The relay returns BOTH inputs only after pairing them. Even our own
+      // input must make a full round trip. Budget for the slower player and
+      // recent peaks, plus three frames for scheduling and ordinary jitter.
+      return Math.max(4, Math.min(30, Math.ceil(rtt / (1000 / 60)) + 3));
     },
 
     latencyInfo() {
@@ -371,7 +381,12 @@
         rtt: this.rtt,
         peerRtt: this.peerRtt,
         delay: this.inputDelay,
-        remote: this.usingRemote
+        remote: this.usingRemote,
+        inputRtt: this.inputRtt,
+        simulationFps: this.simulationFps,
+        waitPercent: this.waitPercent,
+        bufferedFrames: this.frames.size,
+        endpoint: this.endpoint
       };
     },
 
@@ -398,16 +413,65 @@
       this.sentInputs = new Map();
       this.lastDelayChange = 0;
       this.lowRttSince = 0;
+      this.clock = 0;
+      this.statsTime = 0;
+      this.statsSteps = 0;
+      this.statsWait = 0;
+      this.simulationFps = null;
+      this.waitPercent = 0;
+      this.inputRtt = null;
+      this.sentTimes = new Map();
+    },
+
+    // Called by rAF, but simulation time is independent of display refresh.
+    // A missing input freezes game time; do not build up seconds of debt
+    // while waiting and then fast-forward when a packet/reconnect arrives.
+    advance(elapsed, update, active = () => true) {
+      const dt = Math.max(0, Number.isFinite(elapsed) ? elapsed : 0);
+      this.clock = Math.min(STEP * 4, this.clock + Math.min(dt, 0.05));
+      const connected = this.ws && this.ws.readyState === 1 &&
+        this.peerConnected && !this.resuming;
+      if (connected) {
+        this.primeInputs();
+        this.sendNextInput();
+      }
+      let steps = 0;
+      let waiting = !connected;
+      while (connected && this.clock + 1e-9 >= STEP && steps < 4 && active()) {
+        const inputs = this.frames.get(this.nextFrame);
+        if (!inputs) { waiting = true; break; }
+        this.frames.delete(this.nextFrame);
+        update(STEP, inputs);
+        this.nextFrame += 1;
+        this.clock = Math.max(0, this.clock - STEP);
+        steps += 1;
+        if (active()) this.sendNextInput();
+      }
+      if (waiting) this.clock = Math.min(this.clock, STEP);
+      this.statsTime += dt;
+      this.statsSteps += steps;
+      if (waiting) this.statsWait += dt;
+      if (this.statsTime >= 1) {
+        this.simulationFps = this.statsSteps / this.statsTime;
+        this.waitPercent = Math.round(100 * this.statsWait / this.statsTime);
+        this.statsTime = this.statsSteps = this.statsWait = 0;
+        this.emit('latency', this.latencyInfo());
+      }
+      return steps;
     },
 
     sendInputAt(frame, input) {
       if (!this.ws || this.ws.readyState !== 1) return null;
-      this.send({ type: 'input', frame, input });
+      if (!this.send({ type: 'input', frame, input })) return null;
       this.sentFrame = frame;
       this.sentInputs.set(frame, input);
+      this.sentTimes.set(frame, performance.now());
       const cutoff = this.nextFrame - 120;
       for (const key of this.sentInputs.keys()) {
-        if (key < cutoff) this.sentInputs.delete(key);
+        if (key < cutoff) {
+          this.sentInputs.delete(key);
+          this.sentTimes.delete(key);
+        }
       }
       return input;
     },
@@ -429,7 +493,7 @@
       const sent = this.sendInputAt(target, input);
       // The input was captured for exactly one simulation frame; later presses
       // must belong to the next frame, not this buffered one.
-      G.Input.pressed.clear();
+      if (sent) G.Input.pressed.clear();
       return sent;
     },
 
@@ -438,7 +502,7 @@
       // local P1 layout instead of making the guest use P2's number keys.
       const input = G.humanInput(0);
       const sent = this.sendInputAt(frame, input);
-      G.Input.pressed.clear();
+      if (sent) G.Input.pressed.clear();
       return sent;
     },
 
@@ -507,6 +571,11 @@
               msg.frame >= this.nextFrame &&
               Array.isArray(msg.inputs)) {
             this.frames.set(msg.frame, msg.inputs);
+            const sentAt = this.sentTimes.get(msg.frame);
+            if (sentAt != null) {
+              this.inputRtt = Math.round(performance.now() - sentAt);
+              this.sentTimes.delete(msg.frame);
+            }
             this.emit('frame', msg);
           }
           break;
@@ -518,7 +587,7 @@
               this.rttSamples.push(sample);
               if (this.rttSamples.length > 5) this.rttSamples.shift();
               this.rtt = median(this.rttSamples);
-              this.send({ type: 'latency', rtt: this.rtt });
+              this.send({ type: 'latency', rtt: Math.max(...this.rttSamples) });
               this.emit('latency', this.latencyInfo());
               this.maybeAdjustDelay();
             }

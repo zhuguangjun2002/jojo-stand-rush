@@ -16,6 +16,18 @@ npx playwright show-report
 
 ## 在线联机 smoke
 
+先运行无依赖的网络回归：
+
+```bash
+node tests/net.cjs
+```
+
+该脚本在虚拟时钟下运行实际 `js/net.js` 与 `worker/src/index.mjs` 的 Room，覆盖 20–400ms RTT、双方不对称链路、轻度抖动、30/60/144Hz 回调、战中缓冲升降、断线历史补帧、发送失败与重置。检查模拟按 60Hz 推进、双方同一帧的输入历史一致、断线期间冻结且恢复不快进。它不替代真实校园网、浏览器渲染性能或 Cloudflare 位置的验收。
+
+浏览器集成回归（需要 `playwright-core` 和对应 Chromium）：先运行 `python3 server.py --host 127.0.0.1 --port 8081 --no-autoclose`，再执行 `NODE_PATH=<Playwright 所在 node_modules> node tests/net-browser.cjs`。脚本使用两个独立的无窗口浏览器进程，通过虚拟 WebSocket 调用实际 Room，双向各注入 100ms 延迟，验证真实主循环、选角、移动/攻击、同帧角色状态一致和诊断 HUD。不会连接线上房间。可用 `GAME_URL` 指向其他本地页面端口；截图保存到 `/tmp/jojo-net-diagnostics.png`。
+
+2026-11-20 验证：网络虚拟时钟回归全部通过，20–400ms 稳定 RTT 下，启动缓冲后模拟保持约 60Hz；双浏览器 200ms 延迟测试通过，同帧角色状态一致，采样窗口模拟约 58–60 FPS、等待占比 0%。既有 `tests/johnny.cjs` 的 64 项检查和手机药草触控检查通过。尚未在学生真实校园网下验证，也未发布本次修改到 Cloudflare。
+
 用两个独立浏览器窗口或两个浏览器进程（不要用同一个浏览器里的两个标签页；后台页会被浏览器暂停 rAF，测试会误判为卡顿）：
 
 1. 两个页面都打开 `https://jojo.bigcow.net/`。
@@ -23,7 +35,7 @@ npx playwright show-report
 3. B 点「联机对战」→ 输入房间码 →「加入」。
 4. 双方应进入选人界面；各自选角后自动进入战斗。
 5. 双方各按方向键 / 攻击键，确认两边画面和输入帧都在推进。
-6. 战斗中确认 HUD 显示延迟和输入延迟；联机面板的延迟数字会随 ping 更新。
+6. 战斗中确认 HUD 显示延迟、输入延迟、模拟 FPS 和等待百分比；开局缓冲结束后，正常设备上模拟应约为 60 FPS。联机面板同时显示双方延迟；控制台 `JSON.stringify(JG.Net.latencyInfo())` 可复制诊断数据。
 7. 模拟高延迟：在房主控制台执行 `JG.Net.rtt = 600; JG.Net.peerRtt = 600; JG.Net.lastDelayChange = 0; JG.Net.maybeAdjustDelay()`，双方输入延迟应上调并继续推进；再模拟低延迟并等待稳定后应降回。
 8. 在浏览器 DevTools 里执行 `JG.Net.ws.close()` 模拟掉线：
    - 双方画面冻结，A 显示「对手连接中断，等待重连…」
