@@ -946,6 +946,10 @@
         : `<b>P1</b>A/D 或 ←/→ 移动 <i>·</i> Space/↑ 跳跃 <i>·</i> S/↓ 防御 <i>·</i> J/K 攻击 <i>·</i> F 闪避 <i>·</i> L 二技能（CD 8s） <i>·</i> H 追击 <i>·</i> U 超必杀 <i>·</i> Esc 暂停<br>${advancedHint}`;
     if (p1Id === 'johnny' || p2Id === 'johnny') {
       dom.controlHint.innerHTML = '<b>乔尼</b> A/D 骑马移动 · S 向下防御 · F 马冲刺/受击脱身 · 拾遗体后 L 上下马 · J 普通/K 强力爪弹 · G 药草<br>ACT3 H 入孔 · 左右两孔穿梭 · J 伸手射击 / K 出孔强射 · 第二回合 ACT4：骑马 U 100SP 无限回转 / 长按K欧拉<br>P2 对应：方向键移动/向下防御 · 1/2/3/5/4/6 = J/K/L/H/U/G · 右Shift = F';
+      dom.controlHint.innerHTML += '<br>无限回转：U 下方 / 按住跳跃键或上方向 + U 上方；下方可跳躲，上方不命中地面。';
+    }
+    if (p1Id === 'jotaro' || p2Id === 'jotaro') {
+      dom.controlHint.innerHTML += '<br>承太郎：连续两次 F 侧身闪避后，1.2 秒内按 K 发动贯风重击。';
     }
     App.hintUntil = performance.now() + 7200;
     Input.clear();
@@ -1042,6 +1046,7 @@
     return {
       left: held(map.left),
       right: held(map.right),
+      up: held(map.up),
       down: held(map.down),
       heavy: held(map.heavy),
       second: held(map.second),
@@ -1211,7 +1216,7 @@
         const p = threat.p;
         const beam = p && (p.kind === 'meteor' || p.kind === 'starfinger' || p.kind === 'gerray' || p.kind === 'lifeline');
         const blockChance = Math.min(0.98, diff.block + (threat.kind === 'projectile' ? 0.08 : 0));
-        if (f.guardBroken <= 0 && Math.random() < blockChance) {
+        if (f.guardBroken <= 0 && f.guardLock <= 0 && Math.random() < blockChance) {
           const jumpChance = threat.kind === 'projectile' ? (beam ? 0.68 : 0.26) : 0.02;
           if (ai.jumpLock <= 0 && Math.random() < jumpChance) {
             out.pUp = true;

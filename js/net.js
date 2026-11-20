@@ -18,7 +18,7 @@
 
   // Must match the object returned by Game.humanInput(0).
   const NEUTRAL_INPUT = {
-    left: false, right: false, down: false, heavy: false, second: false,
+    left: false, right: false, up: false, down: false, heavy: false, second: false,
     dodge: false, pUp: false, pLeft: false, pRight: false, pLight: false,
     pHeavy: false, pSpecial: false, pSecond: false, pSuper: false,
     pHerb: false, pDodge: false

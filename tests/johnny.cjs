@@ -136,7 +136,7 @@ const assert = require('node:assert/strict');
       f.tuskHidden=false;
       f.meter=100; f.nailSlots=Array(10).fill(5); f.nailCd=2; f.specialCd=8;
       check(f.fireInfiniteNail(m) && f.meter===0 && f.nailSlots.every(cd=>cd===5),'U spends 100 meter and bypasses ammo and cooldown');
-      target.guarding=true; target.invuln=99; target.calamityGuard=10; target.wouDomain=10; target.onGround=false; target.y=G.GROUND-250;
+      target.guarding=true; target.invuln=99; target.calamityGuard=10; target.wouDomain=10; target.onGround=true; target.y=G.GROUND;
       for(let i=0;i<120 && m.infiniteNails.length;i++) m.updateTuskTimeless(1/60);
       check(target.hp===target.maxHp*.3 && m.phase==='fight' && !m.infiniteKO && !m.finisher,'full-health target loses 70 percent max HP without KO/cinematic');
       check(target.hitstun>0 && !target.guarding && f.damageDealt===target.maxHp*.7,'infinite rotation bypasses guard/invulnerability/calamity and applies hitstun');

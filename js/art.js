@@ -1056,6 +1056,13 @@
     }
 
     if (state === 'dodge') {
+      if (f.charId === 'jotaro') {
+        return makePose({
+          hipY: -86, hipX: -10, chestX: -13, torso: -19, headTilt: 12, coat: 28,
+          armFU: -15, armFL: 18, armBU: 65, armBL: 105,
+          footFX: 20, footFY: -3, footBX: -33, footBY: 0
+        });
+      }
       p = makePose({
         hipY: -82, hipX: -2, chestX: 2,
         torso: -8, headTilt: 6, coat: 20,
@@ -3236,6 +3243,8 @@
       ctx.rotate(-1.32 * k);
     }
     ctx.scale(f.facing * scale, scale);
+    // Jotaro turns his body side-on during a normal dodge.
+    if (f.charId === 'jotaro' && f.state === 'dodge') ctx.scale(0.68, 1);
     if (f.squash) ctx.scale(1 + f.squash * 0.45, 1 - f.squash);
     if (opts.alpha != null) ctx.globalAlpha = opts.alpha;
 

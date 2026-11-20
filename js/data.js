@@ -150,6 +150,8 @@
       attacks: {
         light: { ...baseLight, damage: 44 },
         heavy: { ...baseHeavy, damage: 88 },
+        dodgeStrike: { ...baseHeavy, damage: 180, startup: 0.08, active: 0.14, recovery: 0.35,
+          hitstun: 0.75, lift: 0, reachBonus: 38, airflow: true },
         launcher: { ...baseLauncher, damage: 96 },
         dash: { ...baseDashStrike, damage: 66 },
         dive: { ...baseDive, damage: 72 }
@@ -485,7 +487,7 @@
       },
       special: {
         type: 'wouBug', name: 'Da-Da-Da-Da-Da-Da-Da', jp: 'Da-Da-Da',
-        cost: 50, speed: 210, duration: 6, damage: 70, color: '#c9a86a'
+        cost: 50, speed: 210, duration: 6, damage: 70, cooldown: 5, color: '#c9a86a'
       },
       stone: {
         type: 'wouStone', name: 'OB-LA-DI-OB-LA-DA', cost: 0,

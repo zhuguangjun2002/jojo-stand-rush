@@ -39,16 +39,18 @@
       Audio.johnnyLine('nail');
       return true;
     },
-    fireInfiniteNail(match) {
+    fireInfiniteNail(match, upward = false) {
       if (this.tuskAct !== 4 || this.meter < 100 || this.hp <= 0 || !this.mounted ||
           this.tuskHidden || this.hitstun > 0 || this.blockstun > 0 || this.guarding) return false;
       this.meter -= 100;
       this.supersUsed++;
       this.blueSpin = 0.9;
       this.nailPose = 0.6;
-      match.infiniteNails.push({ owner: this, x: this.x + this.facing * 70, y: this.y - 150 });
-      match.spawnText(this.x, this.y - 270, '牙 ACT4 · 无限回转', '#bfefff', 28, 1.3);
-      match.spawnRing(this.x, this.y - 150, '#8fdfff', 110);
+      const y = GROUND - (upward ? 260 : 80);
+      match.infiniteNails.push({ owner: this, x: this.x + this.facing * 70, y,
+        vx: this.facing * 1450, life: 1.8, upward: !!upward });
+      match.spawnText(this.x, this.y - 270, upward ? '牙 ACT4 · 上方回转' : '牙 ACT4 · 下方回转', '#bfefff', 28, 1.3);
+      match.spawnRing(this.x, y, '#8fdfff', 110);
       Audio.beam();
       Audio.johnnyLine('super');
       return true;
@@ -124,6 +126,7 @@
           right: delta > 32 && (goal || Math.abs(delta) > 480), pLight: true,
           pSpecial: !this.mounted && !!goal, pHerb: this.nailSlots.filter(cd => cd <= 0).length < 4,
           pSuper: this.tuskAct === 4 && this.meter >= 100,
+          up: !opponent.onGround,
           heavy: this.tuskAct === 4 && Math.abs(delta) < 200,
           pDodge: this.hitstun > 0,
           down: !goal && opponent.attack && Math.abs(delta) < 240,
@@ -145,7 +148,7 @@
       this.attack = null;
       this.specialAction = null;
       this.guarding = !!controls.down && this.onGround && !this.tuskHidden &&
-        this.horseDash <= 0 && this.guardBroken <= 0;
+        this.horseDash <= 0 && this.guardBroken <= 0 && this.guardLock <= 0;
       if (this.guarding) {
         this.vx = 0;
         this.state = 'guard';
@@ -154,7 +157,7 @@
         return;
       }
       // ACT4 can fire in stopped time, but cannot act out of hit/block stun.
-      if (controls.pSuper && this.tuskAct === 4) this.fireInfiniteNail(match);
+      if (controls.pSuper && this.tuskAct === 4) this.fireInfiniteNail(match, controls.up || controls.pUp);
       if (controls.pHerb && this.tuskAct >= 2) this.drinkHerb(match);
       if (this.tuskHidden) {
         this.vx = 0;
@@ -249,15 +252,21 @@
       for (let i=this.infiniteNails.length-1; i>=0; i--) {
         const n=this.infiniteNails[i], target=this.fighters[1-n.owner.index];
         if (target.hp <= 0) { this.infiniteNails.splice(i,1); continue; }
-        const dx=target.x-n.x, dy=target.y-110-n.y, distance=Math.hypot(dx,dy);
-        const step=1450*dt;
-        if (distance <= step+24) {
+        const oldX = n.x;
+        n.x += n.vx * dt;
+        n.life -= dt;
+        const box = target.getHurtbox();
+        // Fixed upper/lower lane, swept horizontally to avoid tunnelling.
+        // No vertical homing: jumps clear a low nail; grounded players are
+        // below the upper nail. Ordinary invulnerability rules stay bypassed.
+        const contact = !target.tuskHidden && n.y + 12 >= box.y1 && n.y - 12 <= box.y2 &&
+          Math.max(oldX, n.x) + 18 >= box.x1 && Math.min(oldX, n.x) - 18 <= box.x2;
+        if (contact) {
           this.infiniteNails.splice(i,1);
           this.finishInfiniteRotation(n.owner,target);
           return;
         }
-        n.x += dx/distance*step;
-        n.y += dy/distance*step;
+        if (n.life <= 0 || n.x < LEFT - 100 || n.x > RIGHT + 100) this.infiniteNails.splice(i,1);
       }
     },
     finishInfiniteRotation(owner, target) {
@@ -272,6 +281,9 @@
       target.tuskHidden=false; target.tuskHole=null;
       target.hp = Math.max(0, previousHp - damage);
       target.attack = target.specialAction = null;
+      if ((target.guarding || target.blockstun > 0) && target.charId !== 'tooru') {
+        target.guardLock = Math.max(target.guardLock, 3);
+      }
       target.guarding = false;
       target.blockstun = 0;
       target.hitstun = Math.max(target.hitstun, 0.65);
@@ -478,7 +490,7 @@
         ctx.fillText(`牙 ACT${f.tuskAct}${f.tuskHidden ? ' · 弹孔内' : ''}`, f.x, GROUND-310);
         const hint = f.tuskHidden ? '←/→ 穿梭 · J 伸手射击 · K 出孔强射' :
           f.tuskAct === 1 ? 'J/K/H/L/U 无限爪弹 · F 马冲刺 · 寻找遗体' :
-          f.tuskAct === 4 ? 'L 上下马 · S 防御 · 长按K 欧拉 · 骑马U 无限回转' :
+          f.tuskAct === 4 ? 'S 防御 · 长按K 欧拉 · 骑马U 下段 / ↑+U 上段' :
           f.tuskAct === 2 ? 'J 普通 / K 强射 · L 上下马 · G 药草 · 寻找圣人' :
           'J 普通 / K 蓝色回旋 · H 入孔 · L 上下马 · G 药草';
         ctx.font = '13px sans-serif'; ctx.fillStyle = '#fff0fa';

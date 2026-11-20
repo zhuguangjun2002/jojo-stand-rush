@@ -99,7 +99,7 @@ node tests/net.cjs
 
 ### 奇迹与你
 
-1. `K` 有 3 发石头，第 3 发后进入 5 秒冷却；冷却期间短 K 为短距离拐击，长按仍可抓取。
+1. 短按 `K` 抓取，长按 0.34 秒丢石头；3 发石头后冷却 5 秒，冷却期间长按回退短拐击。
 2. J 拐杖攻击距离明显短于常规 J；所有命中僵直与追击之雨冻结时间按 0.8 倍。
 3. 石头命中回复 15 SP，5 秒内 5 次命中触发 120 伤害爆炸。
 4. 「灾厄的恶」掉落物触发概率 40%、40 伤害、不打断动作；浮现文字只显示「灾厄」。
@@ -127,7 +127,13 @@ node tests/net.cjs
 
 ## 乔尼回归
 
-该脚本直接使用 Node.js、`playwright-core` 与 Chromium，不依赖 Playwright Test runner。可将依赖装在独立目录，避免在游戏仓库创建包管理文件：
+### 空中闪避、角色平衡与侧闪重击
+
+`NODE_PATH=<Playwright 所在 node_modules> node tests/combat.cjs` 在本地页面上执行战斗回归，覆盖六名可跳跃角色的空中 F 与落地、奇迹与你短/长 K 分流和 F 方向、L 冷却与 H 防反绕后、全角色破防锁与豁免/重置、乔尼上下弹道互斥/跳躲/网络上方向输入，以及承太郎连续双闪后的 K 重击、实际命中/气流、窗口消耗和过期、中断与固定种子双模拟。截图保存到 `/tmp/jojo-combat-balance.png`。
+
+2026-11-20 本批验证：`tests/combat.cjs` **92 项通过**；`tests/johnny.cjs` **86 项及手机触控检查通过**，八个本地语音可解码；`tests/net.cjs`、`tests/net-browser.cjs` 通过，双浏览器 200ms 注入延迟下模拟约 60 FPS、等待占比 0%、同帧角色状态一致。语法检查与 `git diff --check` 通过。线上部署由推送 main 后的 Cloudflare 工作流执行。
+
+`tests/johnny.cjs` 和 `tests/combat.cjs` 直接使用 Node.js、`playwright-core` 与 Chromium，不依赖 Playwright Test runner。可将依赖装在独立目录，避免在游戏仓库创建包管理文件：
 
 ```bash
 mkdir -p /tmp/jojo-browser-tests

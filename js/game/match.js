@@ -60,6 +60,7 @@
       this.sparks = [];
       this.texts = [];
       this.rings = [];
+      this.dodgeAirflows = [];
       this.particles = [];
       this.afterimages = [];
       this.superKicks = [];
@@ -115,6 +116,7 @@
       this.sparks = [];
       this.texts = [];
       this.rings = [];
+      this.dodgeAirflows = [];
       this.particles = [];
       this.afterimages = [];
       this.cameraX = 800;
@@ -365,7 +367,8 @@
         return false;
       }
       opts = opts || {};
-      const blocking = defender.guarding && !move.unblockable && defender.blockstun <= 0;
+      const breaksGuard = (defender.guarding || defender.blockstun > 0) && (move.unblockable || move.guardBreak);
+      const blocking = defender.guarding && !move.unblockable && !move.guardBreak && defender.blockstun <= 0;
       const contactX = clamp((attacker.x + defender.x) / 2 + attacker.facing * 10, LEFT + 10, RIGHT - 10);
       const contactY = defender.y - (135 + Math.random() * 45);
 
@@ -410,6 +413,10 @@
       dmg = Math.round(dmg);
 
       defender.hp = Math.max(0, defender.hp - dmg);
+      if (breaksGuard && defender.charId !== 'tooru') {
+        defender.guardLock = Math.max(defender.guardLock, 3);
+        this.spawnText(defender.x, defender.y - 285, '防御封锁 3秒', '#ffba72', 20, 1);
+      }
       defender.gainSpecialOnHit();
       const hitstun = (move.hitstun || 0.28) *
         (attacker.charId === 'tooru' ? TOORU_STUN_SCALE : 1);
@@ -477,6 +484,11 @@
       this.shake = Math.max(this.shake, move.guardBreak ? 19 : heavy ? 15 : 8);
       this.flash = Math.max(this.flash, move.guardBreak ? 0.34 : heavy ? 0.24 : 0.08);
       this.spawnSpark(contactX, contactY, attacker.data.accent, heavy ? 44 : 28);
+      if (move.airflow && attacker.charId === 'jotaro') {
+        this.dodgeAirflows.push({ x: defender.x, y: defender.y - 135,
+          dir: attacker.facing, life: 0.45 });
+        this.spawnText(defender.x, defender.y - 260, '贯风重击', '#a9f0ff', 27, 0.8);
+      }
       this.spawnRing(contactX, contactY, attacker.data.accent, heavy ? 110 : 64);
       this.spawnDust(contactX, contactY, heavy ? 7 : 3, attacker.data.accent);
       this.spawnText(contactX + (Math.random() * 30 - 15), contactY - 38, String(dmg), heavy ? '#ffe9a3' : '#fff3d2', heavy ? 30 : 23, 0.65);
@@ -1280,6 +1292,15 @@
       if (fromDomain) {
         this.spawnText(attacker.x, attacker.y - 265, '灾厄', '#ff9aa6', 22, 1.0);
       } else {
+        const oldX = defender.x;
+        this.spawnAfterimage(defender, { life: 0.24, alpha: 0.28 });
+        defender.x = clamp(attacker.x - attacker.facing * 100, LEFT, RIGHT);
+        defender.y = GROUND;
+        defender.vx = defender.vy = 0;
+        defender.onGround = true;
+        defender.facing = attacker.x >= defender.x ? 1 : -1;
+        this.spawnRing(oldX, GROUND - 90, '#ff4055', 78);
+        this.spawnRing(defender.x, GROUND - 90, '#ff4055', 78);
         attacker.hitstun = Math.max(attacker.hitstun, 1.15 * TOORU_STUN_SCALE);
         attacker.blockstun = 0;
         attacker.state = 'hitstun';
@@ -1780,6 +1801,7 @@
       this.sparks = [];
       this.texts = [];
       this.rings = [];
+      this.dodgeAirflows = [];
       this.particles = [];
       this.afterimages = [];
       this.superKicks = [];
@@ -1970,6 +1992,8 @@
     }
 
     updateEffects(dt) {
+      for (const flow of this.dodgeAirflows) flow.life -= dt;
+      this.dodgeAirflows = this.dodgeAirflows.filter(flow => flow.life > 0);
       for (let i = this.sparks.length - 1; i >= 0; i--) {
         const p = this.sparks[i];
         p.life -= dt;
@@ -2214,16 +2238,33 @@
       this.drawParticles(ctx);
       this.drawRings(ctx);
       this.drawTexts(ctx);
+      for (const flow of this.dodgeAirflows) {
+        ctx.save();
+        ctx.translate(flow.x, flow.y); ctx.scale(flow.dir, 1);
+        ctx.globalAlpha = Math.min(1, flow.life / 0.2);
+        ctx.strokeStyle = '#b9f4ff'; ctx.lineWidth = 4;
+        const progress = (0.45 - flow.life) / 0.45;
+        for (let i = -2; i <= 2; i++) {
+          ctx.beginPath(); ctx.moveTo(-100 + progress * 70, i * 9);
+          ctx.quadraticCurveTo(35 + progress * 60, i * 3, 210 + progress * 160, i * 14);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
       this.drawOutroFx(ctx, t);
 
       // guard-broken marker
       for (const f of this.fighters) {
-        if (f.guardBroken > 0 && f.hp > 0) {
+        if ((f.guardBroken > 0 || f.guardLock > 0) && f.hp > 0) {
           const a = 0.45 + 0.3 * Math.sin(t * 12);
           ctx.save();
           ctx.globalAlpha = a;
           Art.drawMangaText(ctx, '崩', f.x, f.y - 232, 24, '#ffe06a', -0.08, 1);
           Art.drawRing(ctx, f.x, f.y - 226, 26 + Math.sin(t * 7) * 3, '#ffe06a', 0.45, 1.5);
+          if (f.guardLock > 0) {
+            ctx.fillStyle = '#ffcf91'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText(`防御封锁 ${f.guardLock.toFixed(1)}s`, f.x, f.y - 260);
+          }
           ctx.restore();
         }
       }

@@ -72,6 +72,8 @@
       this.squash = 0;
       this.guarding = false;
       this.guardBroken = 0;
+      this.guardLock = 0;
+      this.dodgeChainCount = this.dodgeChainWindow = this.dodgeStrikeWindow = 0;
       this.airStandActive = false;
       this.airStandUsed = false;
       this.jumpBuffer = 0;
@@ -174,6 +176,8 @@
       this.squash = 0;
       this.guarding = false;
       this.guardBroken = 0;
+      this.guardLock = 0;
+      this.dodgeChainCount = this.dodgeChainWindow = this.dodgeStrikeWindow = 0;
       this.airStandActive = false;
       this.airStandUsed = false;
       this.jumpBuffer = 0;
@@ -238,6 +242,7 @@
     startAttack(kind, match) {
       const def = this.data.attacks[kind];
       if (!def) return;
+      this.dodgeChainCount = this.dodgeChainWindow = this.dodgeStrikeWindow = 0;
       if ((kind === 'light' || kind === 'heavy' || kind === 'launcher') && this.charId !== 'tooru') {
         Audio.shortChant(this.charId);
       }
@@ -316,7 +321,7 @@
           match.spawnText(this.x, this.y - 270, '泡泡 ' + this.bubbleCharges + '/3', '#8fe8ff', 16, 0.7);
         }
       } else {
-        this.specialCd = JG.SKILL_COOLDOWN.special;
+        this.specialCd = sp.cooldown || JG.SKILL_COOLDOWN.special;
       }
       this.attack = null;
       this.specialAction = {
@@ -393,29 +398,7 @@
     }
 
     startDodge(match, input) {
-      if (!this.onGround || this.attack || this.specialAction || this.hitstun > 0 || this.blockstun > 0) return false;
-      if (this.charId === 'tooru') {
-        // Normal F is a short backward blink. Only the hitstun escape (handled
-        // in Match.burst) appears behind the opponent.
-        const oldX = this.x;
-        const dir = -this.facing;
-        match.spawnAfterimage(this, { life: 0.24, alpha: 0.28 });
-        this.x = clamp(this.x + dir * 220, LEFT, RIGHT);
-        this.vx = 0;
-        this.vy = 0;
-        this.onGround = true;
-        this.dashTime = 0;
-        this.dashType = 'dodge';
-        this.dashDir = dir;
-        this.invuln = Math.max(this.invuln, 0.3);
-        this.state = 'dodge';
-        match.spawnRing(oldX, this.y - 90, '#ff4055', 78);
-        match.spawnRing(this.x, this.y - 90, '#ff4055', 78);
-        match.spawnDust(this.x, this.y, 6, '#ff4055');
-        match.spawnAfterimage(this, { life: 0.24, alpha: 0.28 });
-        Audio.whiff();
-        return true;
-      }
+      if (this.attack || this.specialAction || this.hitstun > 0 || this.blockstun > 0 || this.dashTime > 0) return false;
       const axis = input.left ? -1 : input.right ? 1 : -this.facing;
       this.dashType = 'dodge';
       this.dashDir = axis;
@@ -423,7 +406,17 @@
       this.vx = axis * 560;
       this.invuln = Math.max(this.invuln, 0.24);
       this.state = 'dodge';
-      match.spawnRing(this.x, this.y - 88, '#9de8ff', 68);
+      this.guarding = false;
+      if (this.charId === 'jotaro') {
+        this.dodgeChainCount = this.dodgeChainWindow > 0 ? this.dodgeChainCount + 1 : 1;
+        this.dodgeChainWindow = 0.9;
+        if (this.dodgeChainCount >= 2) {
+          this.dodgeStrikeWindow = 1.2;
+          this.dodgeChainCount = 0;
+          match.spawnText(this.x, this.y - 250, 'K · 贯风重击', '#91e8ff', 24, 1.2);
+        }
+      }
+      match.spawnRing(this.x, this.y - 88, this.charId === 'tooru' ? '#ff4055' : '#9de8ff', 68);
       match.spawnDust(this.x - axis * 16, this.y, 3, 'rgba(215,195,168,.75)');
       match.spawnAfterimage(this, { life: 0.2, alpha: 0.2 });
       Audio.whiff();
@@ -577,7 +570,7 @@
       if (this.stoneCd > 0 || this.stoneCharges <= 0) return false;
       const sp = this.data.stone;
       if (!sp) return false;
-      // Short K is free; the reward comes from landing the stone. Three
+      // Held K is free; the reward comes from landing the stone. Three
       // throws are allowed before the five-second recharge.
       this.stoneCharges -= 1;
       if (this.stoneCharges <= 0) {
@@ -701,6 +694,13 @@
       this.invuln = Math.max(0, this.invuln - dt);
       this.escapeFade = Math.max(0, this.escapeFade - dt);
       this.guardBroken = Math.max(0, this.guardBroken - dt);
+      this.guardLock = Math.max(0, this.guardLock - dt);
+      this.dodgeChainWindow = Math.max(0, this.dodgeChainWindow - dt);
+      this.dodgeStrikeWindow = Math.max(0, this.dodgeStrikeWindow - dt);
+      if (this.dodgeChainWindow <= 0) this.dodgeChainCount = 0;
+      if (this.attack || this.specialAction || this.hitstun > 0 || this.blockstun > 0) {
+        this.dodgeChainCount = this.dodgeChainWindow = this.dodgeStrikeWindow = 0;
+      }
       this.squash = lerp(this.squash, 0, 1 - Math.exp(-14 * dt));
       this.landTimer = Math.max(0, this.landTimer - dt);
       this.barrageCd = Math.max(0, this.barrageCd - dt);
@@ -810,7 +810,19 @@
         if (this.perfectFollowupTimer <= 0) this.doPerfectFollowup(opponent, match);
       }
 
-      this.guarding = !!input.down && this.onGround && !this.attack && !this.specialAction && this.guardBroken <= 0;
+      this.guarding = !!input.down && this.onGround && !this.attack && !this.specialAction &&
+        this.guardBroken <= 0 && this.guardLock <= 0;
+
+      if (this.charId === 'jotaro' && this.dodgeStrikeWindow > 0 && input.pHeavy &&
+          !this.attack && !this.specialAction && !this.guarding) {
+        this.dashTime = 0;
+        this.heavyHold = 0;
+        this.facing = opponent.x >= this.x ? 1 : -1;
+        this.startAttack('dodgeStrike', match);
+        this.moveX(dt);
+        if (!this.onGround) this.applyGravity(dt, match);
+        return;
+      }
 
       if (this.perfectWindow > 0 && input.pLight && !this.attack && !this.specialAction && this.onGround) {
         if (this.startSecond(match, { free: true })) {
@@ -840,25 +852,22 @@
         }
       }
 
-      // Tooru's K: the stone fires immediately on press, so a tap feels
-      // responsive. Three throws are allowed before a five-second recharge;
-      // while recharging, short K becomes the shorter cane poke. Holding past
-      // 0.34s always upgrades into the calamity grab.
+      // Decide tap vs hold BEFORE casting: a K release grabs; holding for
+      // 0.34s throws a stone. One press must never cast both actions.
       if (this.charId === 'tooru') {
         if (this.tooruHeavyPending) {
-          if (!input.heavy || this.hitstun > 0 || this.blockstun > 0) {
+          if (this.attack || this.specialAction || this.guarding || !this.onGround) {
             this.tooruHeavyPending = false;
-          } else if ((this.attack && this.attack.kind !== 'shortCane') ||
-                     (this.specialAction && this.specialAction.type !== 'wouStone')) {
+          } else if (!input.heavy) {
             this.tooruHeavyPending = false;
+            if (!this.startWouGrab(match)) this.startShortCane(match);
+            this.vx = 0;
+            return;
           } else {
             this.tooruHeavyTime += dt;
             if (this.tooruHeavyTime >= 0.34) {
               this.tooruHeavyPending = false;
-              if (this.specialAction && this.specialAction.type === 'wouStone') this.specialAction = null;
-              this.attack = null;
-              this.attackTime = 0;
-              this.startWouGrab(match);
+              if (!this.startWouStone(match)) this.startShortCane(match);
               this.vx = 0;
               return;
             }
@@ -867,17 +876,15 @@
         if (input.pHeavy && !this.attack && !this.specialAction && !this.guarding && this.onGround) {
           this.tooruHeavyPending = true;
           this.tooruHeavyTime = 0;
-          // If the stone is on cooldown, short K becomes the shorter cane
-          // poke instead of a dead button. Holding still upgrades to grab.
-          if (!this.startWouStone(match)) this.startShortCane(match);
           this.vx = 0;
           return;
         }
       }
 
-      if (input.pDodge && this.onGround && !this.attack && !this.specialAction && this.dashTime <= 0 && this.guardBroken <= 0) {
-        const perfect = this.canPerfectDodge(opponent);
+      if (input.pDodge && !this.attack && !this.specialAction && this.dashTime <= 0 && this.guardBroken <= 0) {
+        const perfect = this.onGround && this.canPerfectDodge(opponent);
         if (this.startDodge(match, input) && perfect) this.startPerfectDodge(match);
+        if (!this.onGround) this.applyGravity(dt, match);
         this.moveX(dt);
         return;
       }
@@ -1160,6 +1167,7 @@
           this.vx = this.dashDir * 560 * (0.58 + this.dashTime / 0.25 * 0.42);
           this.invuln = Math.max(this.invuln, Math.min(0.24, this.dashTime + 0.08));
           this.gaitPhase += Math.abs(this.vx) * dt * 0.045;
+          if (!this.onGround) this.applyGravity(dt, match);
           this.moveX(dt);
           if (Math.random() < 0.5) match.spawnAfterimage(this, { life: 0.18, alpha: 0.18 });
           return;
