@@ -949,7 +949,7 @@
       dom.controlHint.innerHTML += '<br>无限回转：U 下方 / 按住跳跃键或上方向 + U 上方；下方可跳躲，上方不命中地面。';
     }
     if (p1Id === 'jotaro' || p2Id === 'jotaro') {
-      dom.controlHint.innerHTML += '<br>承太郎：连续两次 F 侧身闪避后，1.2 秒内按 K 发动贯风重击。';
+      dom.controlHint.innerHTML += '<br>承太郎：连续两次 F 闪避后，1.2 秒内按 K 发动贯风重击。';
     }
     App.hintUntil = performance.now() + 7200;
     Input.clear();

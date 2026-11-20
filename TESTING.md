@@ -127,7 +127,7 @@ node tests/net.cjs
 
 ## 乔尼回归
 
-### 空中闪避、角色平衡与侧闪重击
+### 空中闪避、角色平衡与双闪重击
 
 `NODE_PATH=<Playwright 所在 node_modules> node tests/combat.cjs` 在本地页面上执行战斗回归，覆盖六名可跳跃角色的空中 F 与落地、奇迹与你短/长 K 分流和 F 方向、L 冷却与 H 防反绕后、全角色破防锁与豁免/重置、乔尼上下弹道互斥/跳躲/网络上方向输入，以及承太郎连续双闪后的 K 重击、实际命中/气流、窗口消耗和过期、中断与固定种子双模拟。截图保存到 `/tmp/jojo-combat-balance.png`。
 
