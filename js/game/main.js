@@ -331,10 +331,10 @@
     stick: '虚拟轮盘',
     light: '轻攻击',
     heavy: '重攻击',
-    special: '二技能',
-    follow: '追击技',
+    special: '技能1',
+    follow: '技能2',
     dodge: '闪避',
-    super: '超必杀',
+    super: '大招',
     herb: '乔尼·药草'
   };
   const TOUCH_MARGIN = 8;

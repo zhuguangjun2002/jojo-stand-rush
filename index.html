@@ -128,6 +128,7 @@
       </div>
 
       <div id="control-hint" class="control-hint"></div>
+      <div id="skill-bar" class="skill-bar hidden" aria-label="技能按键与冷却"></div>
       <div id="training-panel" class="training-panel hidden">
         <b>TRAINING</b>
         <span id="training-dummy">假人：站立</span>
@@ -325,8 +326,8 @@
               <div class="key-row"><kbd>S</kbd><em>下蹲 · 替身格挡</em></div>
               <div class="key-row"><kbd>J</kbd><em>轻攻击 · 可连段</em></div>
               <div class="key-row"><kbd>K</kbd><em>重攻击 / 长按替身连打</em></div>
-              <div class="key-row"><kbd>L</kbd><em>二技能 · CD 8 秒</em></div>
-              <div class="key-row"><kbd>H</kbd><em>追击技 · 25 SP · CD 5 秒</em></div>
+              <div class="key-row"><kbd>L</kbd><em>技能1 · CD 8 秒</em></div>
+              <div class="key-row"><kbd>H</kbd><em>技能2（追击）· 25 SP · CD 5 秒</em></div>
               <div class="key-row"><kbd>U</kbd><em>超必杀 · 100 SP</em></div>
               <div class="key-row"><kbd>F</kbd><em>闪避 / 受击脱离（25 SP）</em></div>
             </div>
@@ -337,8 +338,8 @@
               <div class="key-row"><kbd>↓</kbd><em>下蹲 · 替身格挡</em></div>
               <div class="key-row"><kbd>1</kbd><em>轻攻击</em></div>
               <div class="key-row"><kbd>2</kbd><em>重攻击 / 长按连打</em></div>
-              <div class="key-row"><kbd>3</kbd><em>二技能 · CD 8 秒</em></div>
-              <div class="key-row"><kbd>5</kbd><em>追击技 · 25 SP · CD 5 秒</em></div>
+              <div class="key-row"><kbd>3</kbd><em>技能1 · CD 8 秒</em></div>
+              <div class="key-row"><kbd>5</kbd><em>技能2（追击）· 25 SP · CD 5 秒</em></div>
               <div class="key-row"><kbd>4</kbd><em>超必杀 · 100 SP</em></div>
               <div class="key-row"><kbd>右Shift</kbd><em>闪避 / 受击脱离</em></div>
             </div>
@@ -346,6 +347,7 @@
               <div class="help-player"><span>TIPS</span> 战斗要诀</div>
               <ul>
                 <li class="touch-only-tip"><b>触屏轮盘</b>左下轮盘左右拖动移动，上拉跳跃，下拉防御；右侧是攻击键，底部中间 <kbd>Ⅱ</kbd> 暂停。</li>
+                <li class="touch-only-tip"><b>攻击按键</b>轻 = J，重 = K，技1 = L，技2 = H，大招 = U。按钮内显示剩余冷却；只有乔尼显示独立的「草」药草键。</li>
                 <li><b>直接朝向</b>按 <kbd>A</kbd> 立刻面向左侧，按 <kbd>D</kbd> 面向右侧；不按方向时自动面向对手。</li>
                 <li><b>贴身连段</b>轻攻击命中后立刻再按，可接重击。</li>
                 <li><b>防御反击</b>按住防御会吃少量削血；防御后立刻出招。</li>
@@ -443,10 +445,10 @@
       <div class="touch-attack">
         <button data-touch="KeyJ" data-touch-key="light" class="touch-btn atk light" type="button" aria-label="轻攻击">轻</button>
         <button data-touch="KeyK" data-touch-key="heavy" class="touch-btn atk heavy" type="button" aria-label="重攻击，长按连打">重</button>
-        <button data-touch="KeyL" data-touch-key="special" class="touch-btn atk special" type="button" aria-label="二技能">技</button>
-        <button data-touch="KeyH" data-touch-key="follow" class="touch-btn atk follow" type="button" aria-label="追击技">追</button>
+        <button data-touch="KeyL" data-touch-key="special" class="touch-btn atk special" type="button" aria-label="技能1">技1</button>
+        <button data-touch="KeyH" data-touch-key="follow" class="touch-btn atk follow" type="button" aria-label="技能2">技2</button>
         <button data-touch="KeyF" data-touch-key="dodge" class="touch-btn atk dodge" type="button" aria-label="闪避">闪</button>
-        <button data-touch="KeyU" data-touch-key="super" class="touch-btn atk super" type="button" aria-label="超必杀">极</button>
+        <button data-touch="KeyU" data-touch-key="super" class="touch-btn atk super" type="button" aria-label="大招">大招</button>
       </div>
     </div>
 

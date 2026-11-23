@@ -339,6 +339,7 @@
       el.classList.toggle('hidden', key !== name);
     });
     App.screen = name;
+    $('skill-bar').classList.add('hidden');
     // Leaving the fight must never leave the layout editor floating on top.
     if (App.touchEditing) {
       App.touchEditing = false;
@@ -449,8 +450,116 @@
     }
   }
 
+  const SKILL_CONTROLS = [
+    ['light', '轻', 'light'], ['heavy', '重', 'heavy'],
+    ['special', '技1', 'special'], ['second', '技2', 'follow'],
+    ['super', '大招', 'super'], ['dodge', '闪', 'dodge'], ['herb', '草', 'herb']
+  ];
+  const skillRows = [];
+  let touchSkills;
+
+  function skillStatus(f, action) {
+    let cd = 0, detail = '';
+    if (action === 'special') cd = f.charId === 'josuke' && !f.goBeyond ? f.bubbleCd : f.specialCd;
+    if (action === 'second') cd = f.secondCd;
+    if (action === 'heavy') {
+      cd = f.charId === 'tooru' ? Math.max(f.stoneCd, f.abilityLock) : f.barrageCd;
+      if (cd > 0) detail = f.charId === 'tooru' ? '石头 ' : '连打 ';
+    }
+    if (action === 'special' && f.charId === 'tooru') cd = Math.max(cd, f.abilityLock);
+    if (action === 'dodge') {
+      cd = f.burstCd;
+      detail = cd > 0 ? '脱身 ' : '';
+      if (!cd && f.charId === 'johnny') cd = f.horseCd;
+      if (!cd && f.perfectCd > 0) { cd = f.perfectCd; detail = '完闪 '; }
+    }
+    if (action === 'herb') cd = f.herbCd;
+    if (f.charId === 'johnny') {
+      const shoots = action === 'light' || action === 'heavy' ||
+        (f.tuskAct === 1 && ['special', 'second', 'super', 'herb'].includes(action)) ||
+        (action === 'super' && f.tuskAct < 4) || (action === 'second' && f.tuskAct < 3);
+      if (['special', 'second', 'heavy'].includes(action)) { cd = 0; detail = ''; }
+      if (shoots) {
+        cd = f.nailCd;
+        if (f.tuskAct >= 2 && f.nailSlots.every(value => value > 0)) {
+          cd = Math.max(cd, Math.min(...f.nailSlots));
+        }
+      }
+    }
+    if (cd > 0) return { text: detail + (Math.ceil(cd * 10) / 10).toFixed(1) + 's', cooling: true };
+    if (action === 'herb' && f.tuskAct < 2) return { text: 'ACT2解锁', cooling: false };
+    if (action === 'special' && f.charId === 'josuke' && !f.goBeyond) return { text: f.bubbleCharges + '/3发', cooling: false };
+    if (action === 'super' && (f.charId !== 'johnny' || f.tuskAct === 4)) {
+      const cost = f.charId === 'tooru' ? 50 : 100;
+      return { text: f.meter >= cost ? '就绪' : cost + ' SP', cooling: false };
+    }
+    return { text: '就绪', cooling: false };
+  }
+
+  function setSkillStatus(el, status) {
+    if (el.status.textContent !== status.text) el.status.textContent = status.text;
+    el.root.classList.toggle('cooling', status.cooling);
+  }
+
+  function updateSkillHUD(match) {
+    const touch = document.body.classList.contains('touch');
+    const localIndex = App.mode === 'net' && JG.Net ? JG.Net.localIndex : 0;
+    const bar = $('skill-bar');
+    bar.classList.toggle('hidden', touch);
+    if (!touch) {
+      const indices = App.mode === '2p' ? [0, 1] : [localIndex];
+      for (let rowIndex = 0; rowIndex < 2; rowIndex++) {
+        if (!skillRows[rowIndex]) {
+          const root = document.createElement('div');
+          root.className = 'skill-row';
+          const player = document.createElement('b');
+          root.appendChild(player);
+          const controls = SKILL_CONTROLS.map(() => {
+            const cell = document.createElement('div');
+            cell.className = 'skill-cell';
+            const key = document.createElement('kbd'), label = document.createElement('span'), status = document.createElement('small');
+            cell.append(key, label, status); root.appendChild(cell);
+            return { root: cell, key, label, status };
+          });
+          bar.appendChild(root);
+          skillRows[rowIndex] = { root, player, controls };
+        }
+        const row = skillRows[rowIndex], index = indices[rowIndex];
+        row.root.classList.toggle('hidden', index == null);
+        if (index == null) continue;
+        const f = match.fighters[index], bindings = KEY_BINDINGS[App.mode === 'net' || index === 0 ? 'p1' : 'p2'];
+        row.player.textContent = 'P' + (index + 1);
+        SKILL_CONTROLS.forEach(([action, label], i) => {
+          const cell = row.controls[i];
+          cell.root.classList.toggle('hidden', action === 'herb' && f.charId !== 'johnny');
+          const key = keyLabel(bindings[action]);
+          if (cell.key.textContent !== key) cell.key.textContent = key;
+          if (cell.label.textContent !== label) cell.label.textContent = label;
+          setSkillStatus(cell, skillStatus(f, action));
+        });
+      }
+    }
+    if (touch) {
+      if (!touchSkills) touchSkills = SKILL_CONTROLS.map(([action, label, touchKey]) => {
+        const root = document.querySelector(`[data-touch-key="${touchKey}"]`);
+        const name = document.createElement('span'), status = document.createElement('small');
+        name.textContent = label;
+        root.replaceChildren(name, status);
+        return { root, status, action, label };
+      });
+      const f = match.fighters[localIndex];
+      touchSkills.forEach(el => {
+        el.root.classList.toggle('hidden', el.action === 'herb' && f.charId !== 'johnny');
+        const status = skillStatus(f, el.action);
+        setSkillStatus(el, status);
+        el.root.setAttribute('aria-label', el.label + '，' + status.text);
+      });
+    }
+  }
+
   function updateHUD(match) {
     if (!match || App.screen !== 'fight') return;
+    updateSkillHUD(match);
     const p1 = match.p1;
     const p2 = match.p2;
     for (const f of [p1, p2]) {
