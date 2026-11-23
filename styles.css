@@ -1824,6 +1824,51 @@ body.touch .touch-controls:not(.hidden) { display: flex; }
 .touch-btn.atk.dodge { border-color: rgba(157, 232, 255, .6); color: #9de8ff; }
 .touch-btn.atk.light { margin-bottom: calc(var(--touch-size) * .34); }
 .touch-btn.atk.special { margin-bottom: calc(var(--touch-size) * .74); }
+/* Default right-thumb arc: a large light attack at the bottom right, heavy
+   and dodge to its left, with skills and super above. Relative positioning
+   keeps the layout editor's saved offsets independent of these anchors. */
+.touch-controls:not(.legacy-layout) .touch-attack {
+  display: grid;
+  grid-template: 1fr / 1fr;
+  gap: 0;
+  width: calc(var(--touch-size) * 5.72);
+  height: calc(var(--touch-size) * 4.8);
+  margin-bottom: calc(var(--touch-size) * .5);
+  flex: 0 0 auto;
+  pointer-events: none;
+}
+.touch-controls:not(.legacy-layout) .touch-attack .touch-btn {
+  grid-area: 1 / 1;
+  align-self: start;
+  justify-self: start;
+  margin: 0;
+  pointer-events: auto;
+}
+.touch-controls:not(.legacy-layout) .touch-btn.atk.light {
+  width: calc(var(--touch-size) * 1.48);
+  height: calc(var(--touch-size) * 1.48);
+  margin-left: calc(var(--touch-size) * 4.12);
+  margin-top: calc(var(--touch-size) * 3.26);
+}
+.touch-controls:not(.legacy-layout) .touch-btn.atk.heavy {
+  margin-left: calc(var(--touch-size) * 1.8);
+  margin-top: calc(var(--touch-size) * 3.8);
+}
+.touch-controls:not(.legacy-layout) .touch-btn.atk.dodge {
+  margin-top: calc(var(--touch-size) * 3.8);
+}
+.touch-controls:not(.legacy-layout) .touch-btn.atk.special {
+  margin-left: calc(var(--touch-size) * 2.8);
+  margin-top: calc(var(--touch-size) * 2.13);
+}
+.touch-controls:not(.legacy-layout) .touch-btn.atk.follow {
+  margin-left: calc(var(--touch-size) * 4.8);
+  margin-top: calc(var(--touch-size) * .95);
+}
+.touch-controls:not(.legacy-layout) .touch-btn.atk.super {
+  margin-left: calc(var(--touch-size) * 3.06);
+  margin-top: calc(var(--touch-size) * .24);
+}
 .touch-btn.tool {
   width: max(44px, calc(var(--touch-size) * .8));
   height: max(44px, calc(var(--touch-size) * .8));

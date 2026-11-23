@@ -49,6 +49,18 @@ node tests/net.cjs
 
 ## 手机端手动回归
 
+技能与触屏界面的自动检查（先启动本地 8081 服务，`NODE_PATH` 指向安装了 `playwright-core` 的目录）：
+
+```bash
+node tests/skill-hud.cjs
+node tests/touch-layout.cjs
+node tests/text-render.cjs
+```
+
+`touch-layout.cjs` 检查 1341×1097、915×412、844×390、568×320 下的默认弧形键位、轻攻击大小、控件边界与间距，以及旧自定义布局保留和重置行为。已有自定义布局继续使用原锚点；点「重置」后切换为新的默认键位。
+
+`text-render.cjs` 在 DPR 1/2 下检查文字缓存复用、浮字缩放、字形边界、容量限制、字体加载失效，以及静止冷却栏不产生重复 DOM 更新。此类无窗口检查不能替代真实手机上的流畅度验收。
+
 自动化 smoke 测试之外，触屏改动至少手动过一遍下面这些：
 
 1. **Chrome / Edge 设备模拟**：按 `F12` → `Ctrl+Shift+M`，选 Pixel / iPhone，切横屏，然后**刷新页面**让触屏检测重新执行。

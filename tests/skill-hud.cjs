@@ -28,6 +28,13 @@ const assert = require('node:assert/strict');
         const button = key => document.querySelector(`[data-touch-key="${key}"]`);
         const visible = el => getComputedStyle(el).display !== 'none';
         let m = start('jotaro');
+        const hudObserver = new MutationObserver(() => {});
+        hudObserver.observe(document.getElementById(mobile ? 'touch-controls' : 'skill-bar'), {
+          subtree: true, attributes: true, childList: true, characterData: true
+        });
+        for (let i = 0; i < 120; i++) G.updateHUD(m);
+        check(hudObserver.takeRecords().length === 0, 'unchanged skill HUD performs no DOM mutations');
+        hudObserver.disconnect();
         const cells = () => [...document.querySelectorAll('.skill-row:first-child .skill-cell')];
         check(visible(document.getElementById('skill-bar')) === !mobile, 'desktop bar visibility');
         if (!mobile) {

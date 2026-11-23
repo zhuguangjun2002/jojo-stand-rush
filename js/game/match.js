@@ -2783,7 +2783,7 @@
       for (const tx of this.texts) {
         const k = clamp(tx.life / tx.max, 0, 1);
         const scale = tx.life > tx.max * 0.8 ? 1.25 - (1 - (tx.max - tx.life) / (tx.max * 0.2)) * 0.25 : 1;
-        Art.drawMangaText(ctx, tx.text, tx.x, tx.y, tx.size * scale, tx.color, tx.rot, Math.min(1, k * 1.8));
+        Art.drawMangaText(ctx, tx.text, tx.x, tx.y, tx.size, tx.color, tx.rot, Math.min(1, k * 1.8), undefined, scale);
       }
     }
   }

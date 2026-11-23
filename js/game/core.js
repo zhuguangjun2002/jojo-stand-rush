@@ -528,7 +528,8 @@
         row.root.classList.toggle('hidden', index == null);
         if (index == null) continue;
         const f = match.fighters[index], bindings = KEY_BINDINGS[App.mode === 'net' || index === 0 ? 'p1' : 'p2'];
-        row.player.textContent = 'P' + (index + 1);
+        const playerLabel = 'P' + (index + 1);
+        if (row.player.textContent !== playerLabel) row.player.textContent = playerLabel;
         SKILL_CONTROLS.forEach(([action, label], i) => {
           const cell = row.controls[i];
           cell.root.classList.toggle('hidden', action === 'herb' && f.charId !== 'johnny');
@@ -552,7 +553,8 @@
         el.root.classList.toggle('hidden', el.action === 'herb' && f.charId !== 'johnny');
         const status = skillStatus(f, el.action);
         setSkillStatus(el, status);
-        el.root.setAttribute('aria-label', el.label + '，' + status.text);
+        const ariaLabel = el.label + '，' + status.text;
+        if (el.root.getAttribute('aria-label') !== ariaLabel) el.root.setAttribute('aria-label', ariaLabel);
       });
     }
   }

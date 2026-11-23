@@ -365,9 +365,14 @@
   }
 
   let touchLayout = loadTouchLayout();
+  // Saved offsets from the original row layout retain their original anchors.
+  // Reset switches to the new default; subsequent edits use the new anchors.
+  let legacyTouchLayout = Object.keys(touchLayout).length > 0 &&
+    safeStorage('jojo-touch-layout-version', undefined, '') !== '2';
 
   function saveTouchLayout() {
     safeStorage(TOUCH_LAYOUT_KEY, JSON.stringify(touchLayout));
+    safeStorage('jojo-touch-layout-version', legacyTouchLayout ? '1' : '2');
   }
 
   function touchControlElement(key) {
@@ -381,6 +386,7 @@
 
   function applyTouchLayout() {
     if (!document.body.classList.contains('touch')) return;
+    dom.touch.classList.toggle('legacy-layout', legacyTouchLayout);
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     TOUCH_LAYOUT_KEYS.forEach((key) => {
@@ -569,6 +575,7 @@
 
   function resetTouchLayout() {
     touchLayout = {};
+    legacyTouchLayout = false;
     clearTouchSelection();
     saveTouchLayout();
     applyTouchLayout();

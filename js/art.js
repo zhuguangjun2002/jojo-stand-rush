@@ -3661,20 +3661,74 @@
   /* =========================================================
      FX helpers
      ========================================================= */
-  function drawMangaText(ctx, text, x, y, size, color, rot, alpha, outline) {
+  // Position, rotation, fade and pop animations reuse one rasterized label.
+  // Bound both the entry count and pixel storage so long matches cannot grow
+  // an unlimited cache of damage numbers and skill names.
+  const mangaTextCache = new Map();
+  const MANGA_CACHE_PIXELS = 2 * 1024 * 1024;
+  let mangaTextPixels = 0;
+  if (document.fonts) document.fonts.addEventListener('loadingdone', () => {
+    mangaTextCache.clear();
+    mangaTextPixels = 0;
+  });
+
+  function mangaTextSprite(text, size, color, outline) {
+    const ratio = Math.min(2, window.devicePixelRatio || 1);
+    const key = JSON.stringify([text, size, color, outline, ratio]);
+    let sprite = mangaTextCache.get(key);
+    if (sprite) {
+      mangaTextCache.delete(key);
+      mangaTextCache.set(key, sprite);
+      return sprite;
+    }
+    const canvas = document.createElement('canvas');
+    const paint = canvas.getContext('2d');
+    const font = '900 ' + size + 'px "Microsoft YaHei", "Arial Black", sans-serif';
+    paint.font = font;
+    paint.textAlign = 'center';
+    paint.textBaseline = 'middle';
+    const metrics = paint.measureText(text);
+    const lineWidth = Math.max(3, size * 0.12);
+    const pad = lineWidth / 2 + 3;
+    const left = Math.floor(-(metrics.actualBoundingBoxLeft ?? metrics.width / 2) - pad);
+    const top = Math.floor(-(metrics.actualBoundingBoxAscent ?? size) - pad);
+    const width = Math.ceil((metrics.actualBoundingBoxRight ?? metrics.width / 2) + pad) - left;
+    const height = Math.ceil((metrics.actualBoundingBoxDescent ?? size / 2) + pad) - top;
+    canvas.width = Math.max(1, Math.ceil(width * ratio));
+    canvas.height = Math.max(1, Math.ceil(height * ratio));
+    paint.setTransform(ratio, 0, 0, ratio, -left * ratio, -top * ratio);
+    paint.font = font;
+    paint.textAlign = 'center';
+    paint.textBaseline = 'middle';
+    paint.lineJoin = 'round';
+    paint.lineWidth = lineWidth;
+    paint.strokeStyle = outline;
+    paint.strokeText(text, 0, 0);
+    paint.fillStyle = color;
+    paint.fillText(text, 0, 0);
+    sprite = { canvas, left, top, width: canvas.width / ratio, height: canvas.height / ratio };
+    const pixels = canvas.width * canvas.height;
+    if (pixels <= MANGA_CACHE_PIXELS) {
+      while (mangaTextCache.size >= 128 || mangaTextPixels + pixels > MANGA_CACHE_PIXELS) {
+        const oldest = mangaTextCache.keys().next().value;
+        const entry = mangaTextCache.get(oldest);
+        mangaTextPixels -= entry.canvas.width * entry.canvas.height;
+        mangaTextCache.delete(oldest);
+      }
+      mangaTextCache.set(key, sprite);
+      mangaTextPixels += pixels;
+    }
+    return sprite;
+  }
+
+  function drawMangaText(ctx, text, x, y, size, color, rot, alpha, outline, scale = 1) {
+    const sprite = mangaTextSprite(text, size, color || '#fff4d0', outline || '#0b0812');
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(rot || 0);
+    ctx.scale(scale, scale);
     ctx.globalAlpha = alpha == null ? 1 : alpha;
-    ctx.font = '900 ' + size + 'px "Microsoft YaHei", "Arial Black", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = outline || '#0b0812';
-    ctx.lineWidth = Math.max(3, size * 0.12);
-    ctx.strokeText(text, 0, 0);
-    ctx.fillStyle = color || '#fff4d0';
-    ctx.fillText(text, 0, 0);
+    ctx.drawImage(sprite.canvas, sprite.left, sprite.top, sprite.width, sprite.height);
     ctx.restore();
   }
 
