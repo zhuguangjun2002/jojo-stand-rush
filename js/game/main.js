@@ -326,7 +326,7 @@
      Custom touch layout
      ========================================================= */
   const TOUCH_LAYOUT_KEY = 'jojo-touch-layout';
-  const TOUCH_LAYOUT_KEYS = ['stick', 'light', 'heavy', 'special', 'follow', 'dodge', 'super', 'herb'];
+  const TOUCH_LAYOUT_KEYS = ['stick', 'light', 'heavy', 'special', 'follow', 'dodge', 'super', 'herb', 'guard'];
   const TOUCH_CONTROL_NAMES = {
     stick: '虚拟轮盘',
     light: '轻攻击',
@@ -335,7 +335,8 @@
     follow: '技能2',
     dodge: '闪避',
     super: '大招',
-    herb: '乔尼·药草'
+    herb: '乔尼·药草',
+    guard: '防御'
   };
   const TOUCH_MARGIN = 8;
   const TOUCH_SCALE_MIN = 0.7;
@@ -629,8 +630,7 @@
 
     const DEADZONE = 0.2;
     const JUMP_AT = 0.42;
-    const GUARD_AT = 0.34;
-    const keys = { KeyA: false, KeyD: false, Space: false, KeyS: false };
+    const keys = { KeyA: false, KeyD: false, Space: false };
     let activePointer = null;
 
     const setKey = (code, down) => {
@@ -644,7 +644,6 @@
       setKey('KeyA', x < -DEADZONE);
       setKey('KeyD', x > DEADZONE);
       setKey('Space', y < -JUMP_AT);
-      setKey('KeyS', y > GUARD_AT);
     };
 
     const reset = () => {

@@ -1725,7 +1725,7 @@ body.touch .touch-controls:not(.hidden) { display: flex; }
   pointer-events: auto;
 }
 
-/* Virtual d-pad: drag left/right to walk, up to jump, down to guard. */
+/* Virtual d-pad: drag left/right to walk, up to jump. */
 .touch-stick {
   --stick-size: clamp(104px, calc(var(--touch-size) * 2.1), 148px);
   --stick-knob: calc(var(--stick-size) * .46);
@@ -1763,7 +1763,6 @@ body.touch .touch-controls:not(.hidden) { display: flex; }
   pointer-events: none;
 }
 .stick-hint.up { top: 7%; left: 50%; transform: translateX(-50%); }
-.stick-hint.down { bottom: 8%; left: 50%; transform: translateX(-50%); color: rgba(85, 233, 255, .62); }
 .stick-hint.left { left: 8%; top: 50%; transform: translateY(-50%); }
 .stick-hint.right { right: 8%; top: 50%; transform: translateY(-50%); }
 .stick-knob {
@@ -1822,6 +1821,14 @@ body.touch .touch-controls:not(.hidden) { display: flex; }
 .touch-btn.atk.cooling small { color: #ffd18b; }
 .touch-btn.atk.super { border-color: var(--hot); color: var(--hot); }
 .touch-btn.atk.dodge { border-color: rgba(157, 232, 255, .6); color: #9de8ff; }
+.touch-btn.atk.guard { border-color: rgba(85, 233, 255, .65); color: var(--cyan); }
+.touch-defense {
+  position: absolute;
+  right: calc(max(18px, env(safe-area-inset-right)) + var(--touch-size) * 3.6);
+  bottom: calc(max(16px, env(safe-area-inset-bottom)) + var(--touch-size) * 2.25);
+  pointer-events: none;
+}
+.touch-defense .touch-btn { pointer-events: auto; }
 .touch-btn.atk.light { margin-bottom: calc(var(--touch-size) * .34); }
 .touch-btn.atk.special { margin-bottom: calc(var(--touch-size) * .74); }
 /* Default right-thumb arc: a large light attack at the bottom right, heavy
@@ -1972,6 +1979,7 @@ body.touch .touch-editor-bar:not(.hidden) { display: flex; }
   font-size: 18px;
 }
 body.touch-editing .touch-stick,
+body.touch-editing .touch-defense .touch-btn,
 body.touch-editing .touch-attack .touch-btn {
   outline: 2px dashed rgba(255, 201, 74, .72);
   outline-offset: 3px;
@@ -2000,6 +2008,7 @@ body.touch-editing .touch-utility { visibility: hidden; }
 /* Old 568×320 phones cannot fit four move keys plus six attack keys at the
    default size. Tighten the layout, but keep a 48px minimum target. */
 @media (max-width: 640px) {
+  .touch-defense { right: calc(max(10px, env(safe-area-inset-right)) + var(--touch-size) * 3.6); }
   .touch-controls {
     --touch-size: clamp(48px, 8vw, 52px);
     --touch-gap: 4px;

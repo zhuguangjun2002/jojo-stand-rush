@@ -346,7 +346,7 @@
             <div class="help-col tips-col">
               <div class="help-player"><span>TIPS</span> 战斗要诀</div>
               <ul>
-                <li class="touch-only-tip"><b>触屏轮盘</b>左下轮盘左右拖动移动，上拉跳跃，下拉防御；右侧是攻击键，底部中间 <kbd>Ⅱ</kbd> 暂停。</li>
+                <li class="touch-only-tip"><b>触屏轮盘</b>左下轮盘左右拖动移动，上拉跳跃；按住独立的「防」键防御，松开解除。右侧是攻击键，底部中间 <kbd>Ⅱ</kbd> 暂停。</li>
                 <li class="touch-only-tip"><b>攻击按键</b>轻 = J，重 = K，技1 = L，技2 = H，大招 = U。按钮内显示剩余冷却；只有乔尼显示独立的「草」药草键。</li>
                 <li><b>直接朝向</b>按 <kbd>A</kbd> 立刻面向左侧，按 <kbd>D</kbd> 面向右侧；不按方向时自动面向对手。</li>
                 <li><b>贴身连段</b>轻攻击命中后立刻再按，可接重击。</li>
@@ -430,11 +430,10 @@
     <!-- Touch controls live outside the scaled stage so buttons keep a real,
          finger-friendly size on every phone. -->
     <div id="touch-controls" class="touch-controls hidden">
-      <div id="touch-stick" class="touch-stick" data-touch-key="stick" role="group" aria-label="虚拟轮盘：左右移动，上拉跳跃，下拉防御">
+      <div id="touch-stick" class="touch-stick" data-touch-key="stick" role="group" aria-label="虚拟轮盘：左右移动，上拉跳跃">
         <span class="stick-hint up">跳</span>
         <span class="stick-hint left">◀</span>
         <span class="stick-hint right">▶</span>
-        <span class="stick-hint down">防</span>
         <span id="touch-stick-knob" class="stick-knob"></span>
       </div>
       <div class="touch-utility">
@@ -442,6 +441,9 @@
         <button id="btn-touch-pause" class="touch-btn tool" type="button" aria-label="暂停游戏">Ⅱ</button>
       </div>
       <button data-touch="KeyG" data-touch-key="herb" class="touch-btn atk herb hidden" type="button" aria-label="乔尼喝药草，减少冷却">草</button>
+      <div class="touch-defense">
+        <button data-touch="KeyS" data-touch-key="guard" class="touch-btn atk guard" type="button" aria-label="按住防御，松开解除"><span>防</span><small>按住</small></button>
+      </div>
       <div class="touch-attack">
         <button data-touch="KeyJ" data-touch-key="light" class="touch-btn atk light" type="button" aria-label="轻攻击">轻</button>
         <button data-touch="KeyK" data-touch-key="heavy" class="touch-btn atk heavy" type="button" aria-label="重攻击，长按连打">重</button>

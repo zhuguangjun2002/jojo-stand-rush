@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 (async () => {
   const browser = await chromium.launch({ headless: true });
   const errors = [];
-  const keys = ['stick', 'light', 'heavy', 'special', 'follow', 'super', 'dodge'];
+  const keys = ['stick', 'light', 'heavy', 'special', 'follow', 'super', 'dodge', 'guard'];
   async function open(viewport, saved, version) {
     const page = await browser.newPage({viewport, hasTouch:true, isMobile:true});
     page.on('pageerror', e => errors.push(e.message));
@@ -43,6 +43,42 @@ const assert = require('node:assert/strict');
           assert.ok(Math.hypot(rect.cx-b.cx, rect.cy-b.cy) >= (rect.width+b.width)/2, `${key} and ${other} do not overlap`);
         }
       }
+      if (width === 915) {
+        const stick = {x:r.stick.cx,y:r.stick.cy,id:1};
+        const guard = {x:r.guard.cx,y:r.guard.cy,id:2};
+        const pointer = (target,type,point) => page.evaluate(({target,type,point}) => {
+          const el=target ? document.querySelector(target) : window;
+          el.dispatchEvent(new PointerEvent(type, {pointerId:point.id,pointerType:'touch',
+            clientX:point.x,clientY:point.y,bubbles:true,cancelable:true}));
+        }, {target,type,point});
+        const input = () => page.evaluate(() => {
+          const i=JG.Game.humanInput(0);return {down:i.down,right:i.right,up:i.up};
+        });
+        await pointer('#touch-stick','pointerdown',stick);
+        stick.y += r.stick.width*.28;
+        await pointer(null,'pointermove',stick);
+        assert.equal((await input()).down,false,'pulling stick down does not guard');
+        stick.x += r.stick.width*.28;
+        await pointer(null,'pointermove',stick);
+        assert.equal((await input()).right,true,'diagonal down retains movement');
+        assert.equal((await input()).down,false,'diagonal down does not guard');
+        await pointer('[data-touch-key="guard"]','pointerdown',guard);
+        assert.equal((await input()).down,true,'independent button holds guard');
+        assert.equal(await page.evaluate(() => {
+          const G=JG.Game,m=G.App.game;m.p1.update(.01,m.p2,G.humanInput(0),m);return m.p1.guarding;
+        }),true,'button activates fighter guard');
+        await pointer(null,'pointerup',stick);
+        assert.equal((await input()).down,true,'releasing joystick preserves held guard');
+        assert.equal((await input()).right,false,'releasing joystick stops movement');
+        await pointer('[data-touch-key="guard"]','pointerup',guard);
+        assert.equal((await input()).down,false,'releasing guard clears defense');
+        await pointer('[data-touch-key="guard"]','pointerdown',guard);
+        await pointer('[data-touch-key="guard"]','pointercancel',guard);
+        assert.equal((await input()).down,false,'cancelled touch clears defense');
+        await page.keyboard.down('s');assert.equal((await input()).down,true,'keyboard S still guards');
+        await page.keyboard.up('s');
+        console.log('Independent guard, joystick directions, multitouch release, cancellation and keyboard passed');
+      }
       await page.screenshot({path:`/tmp/jojo-touch-layout-${width}x${height}.png`});
       await page.close(); console.log(`${width}x${height}: arc, sizes, bounds and spacing passed`);
     }
@@ -66,10 +102,16 @@ const assert = require('node:assert/strict');
     assert.equal(await current.evaluate(()=>localStorage.getItem('jojo-touch-layout-version')),'2');
     const reset=await rects(current);assert.ok(reset.light.width>reset.heavy.width*1.5,'reset restores new default');
     await current.locator('#btn-touch-layout-done').evaluate(el=>el.click());
-    const modern={light:{x:-.05,y:0,scale:1.1}};
+    const modern={light:{x:-.05,y:0,scale:1.1},guard:{x:-.05,y:0,scale:1.2}};
     const newSaved=await open({width:915,height:412},modern,'2');
     assert.equal(await newSaved.locator('#touch-controls').evaluate(el=>el.classList.contains('legacy-layout')),false);
     assert.ok((await rects(newSaved)).light.width > reset.light.width,'new default custom scale restored');
+    assert.ok(Math.abs((await rects(newSaved)).guard.width-reset.guard.width*1.2)<1,'guard custom scale restored');
+    await newSaved.locator('#btn-touch-layout-edit').evaluate(el=>el.click());
+    await newSaved.locator('[data-touch-key="guard"]').dispatchEvent('pointerdown',{pointerId:99,pointerType:'touch',clientX:500,clientY:200});
+    assert.equal(await newSaved.locator('#touch-size-name').textContent(),'防御','guard can be selected in layout editor');
+    await newSaved.locator('#btn-touch-layout-done').evaluate(el=>el.click());
+    assert.equal(await newSaved.evaluate(()=>JSON.parse(localStorage.getItem('jojo-touch-layout')).guard.scale),1.2,'guard customization persists');
     await Promise.all([old.close(),current.close(),newSaved.close()]);
     assert.deepEqual(errors,[]);
     console.log('Saved layouts preserved; reset and new custom layout restoration passed');
